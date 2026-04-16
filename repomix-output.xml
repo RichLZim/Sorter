@@ -1,0 +1,1698 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+App.axaml
+App.axaml.cs
+app.manifest
+Assets/Icon.ico
+Assets/logo64.png
+Assets/WIP.png
+icon.ico
+Logo.png
+logo64.png
+MainWindow.axaml
+MainWindow.axaml.cs
+Models/Models.cs
+Program.cs
+Services/DateExtractorService.cs
+Services/FileSorterService.cs
+Services/LmStudioService.cs
+Services/SettingReset.cs
+Services/SettingsService.cs
+Sorter.csproj
+Styles/AppStyles.axaml
+ViewModels/MainViewModel.cs
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="App.axaml">
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Sorter.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Sorter/Styles/AppStyles.axaml"/>
+    </Application.Styles>
+</Application>
+</file>
+
+<file path="App.axaml.cs">
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+
+namespace Sorter;
+
+public partial class App : Application
+{
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = new MainWindow();
+        }
+        base.OnFrameworkInitializationCompleted();
+    }
+}
+</file>
+
+<file path="app.manifest">
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="Sorter.app"/>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+</assembly>
+</file>
+
+<file path="MainWindow.axaml">
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Sorter.ViewModels"
+        x:Class="Sorter.MainWindow"
+        x:DataType="vm:MainViewModel" 
+        Title="Sorterz — AI Image Organizer"
+        Width="980" Height="720"
+        MinWidth="860" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0D0F14"
+        Icon="/Assets/Icon.ico">
+
+    <!-- This allows the designer to show data while you are coding -->
+    <Design.DataContext>
+        <vm:MainViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ═══ HEADER ═══ -->
+        <Border Grid.Row="0" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" Margin="20,14">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14">
+                    <Image Source="/Assets/logo64.png" Height="32" Width="32"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SORTER" Classes="Heading" FontSize="20"/>
+                        <TextBlock Text="AI-POWERED IMAGE ORGANIZER" Classes="Label" FontSize="11" Margin="0,1,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Connection Status is now bound to ViewModel -->
+                    <Ellipse x:Name="ConnectionIndicator" Width="8" Height="8" Fill="#3A4050"/>
+                    <TextBlock Text="{Binding ConnectionStatusText}" Classes="Label" VerticalAlignment="Center"/>
+					 
+                    <Button Content="TEST" 
+                            Classes="Secondary" 
+                            Padding="8,4" FontSize="11" 
+                            Command="{Binding TestConnectionCommand}"/>
+
+                    <Button Content="LM INSTALL" 
+                            Background="#228B22" 
+                            Foreground="White"
+                            Padding="24,4" 
+                            FontSize="11" 
+                            Command="{Binding InstallLmStudioCommand}"/>
+
+                    <Button Content="START LM SERVER" 
+                            Background="#228B22" 
+                            Foreground="White"
+                            Padding="24,4" 
+                            FontSize="11" 
+                            Command="{Binding LoadLmStudioCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <Grid Grid.Row="1" ColumnDefinitions="300,*">
+
+            <!-- ═══ LEFT PANEL: CONTROLS ═══ -->
+            <Border Grid.Column="0" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16" Spacing="14">
+
+                        <!-- FOLDERS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="FOLDERS" Classes="Label"/>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="SOURCE (to sort)" Classes="Label" FontSize="10"/>
+                                    <Grid ColumnDefinitions="*,6,Auto">
+                                        <TextBox Text="{Binding SortingFolder}" Grid.Column="0" Watermark="C:\path\to\source..."/>
+                                        <Button Grid.Column="2" Content="···" Classes="Secondary"
+                                                Padding="10,6" Command="{Binding BrowseSourceCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="OUTPUT (sorted into)" Classes="Label" FontSize="10"/>
+                                    <Grid ColumnDefinitions="*,6,Auto">
+                                        <TextBox Text="{Binding SortedFolder}" Grid.Column="0" Watermark="C:\path\to\output..."/>
+                                        <Button Grid.Column="2" Content="···" Classes="Secondary"
+                                                Padding="10,6" Command="{Binding BrowseOutputCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LM STUDIO SETTINGS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="LM STUDIO" Classes="Label"/>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="SERVER URL" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding LmStudioUrl}"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="MODEL NAME" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding ModelName}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- RENAME OPTIONS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="RENAME OPTIONS" Classes="Label"/>
+
+                                <StackPanel Spacing="6">
+                                    <CheckBox IsChecked="{Binding UsePrefix}" Content="Use Prefix on Rename"/>
+                                    
+                                    <!-- Visibility bound to the UsePrefix property -->
+                                    <StackPanel Spacing="4" IsVisible="{Binding UsePrefix}">
+                                        <TextBlock Text="PREFIX (max 8 chars)" Classes="Label" FontSize="10"/>
+                                        <TextBox Text="{Binding Prefix}" MaxLength="8" Watermark="IMG"/>
+                                        <TextBlock Text="Format: PREFIX.YEAR.MM.DD.three.word.desc.ext"
+                                                   Classes="Status" FontSize="10" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock Text="Format: YEAR.MM.DD.three.word.desc.ext"
+                                               Classes="Status" FontSize="10" TextWrapping="Wrap"
+                                               IsVisible="{Binding !UsePrefix}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- FILTER OPTIONS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="FILTER OPTIONS" Classes="Label"/>
+                                <CheckBox IsChecked="{Binding IgnoreNonDatedFiles}" Content="Ignore non-dated files"/>
+                                <TextBlock Text="Skips files with no date in 2001–2099 range"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TOKEN STATS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <CheckBox IsChecked="{Binding ShowTokenCost}" Content="Show Token Cost / Speed"/>
+
+                                <Border Background="#0D0F14" BorderBrush="#1E2430" 
+                                        BorderThickness="1" CornerRadius="4" Padding="10,8"
+                                        IsVisible="{Binding ShowTokenCost}">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding InputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="OUTPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OutputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TokensPerSecond}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS" Classes="Label" FontSize="10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- IMAGE PREVIEW CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="CURRENT IMAGE PREVIEW" Classes="Label"/>
+                                
+                                <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="4" 
+                                        ClipToBounds="True" Height="250" Background="#1A1C23">
+                                    <Panel>
+                                        <!-- Placeholder shows when no image is bound -->
+                                        <TextBlock Text="No Image Loaded" 
+                                                   VerticalAlignment="Center" 
+                                                   HorizontalAlignment="Center" 
+                                                   Foreground="#444444" 
+                                                   FontSize="11"
+                                                   IsVisible="{Binding !HasImage}"/>
+
+                                        <!-- The actual Image control bound to the current file path -->
+                                        <Image Source="{Binding CurrentImageSource}" Stretch="Uniform" />
+                                    </Panel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- ═══ RIGHT PANEL: LOG & RESULTS ═══ -->
+            <Grid Grid.Column="1" RowDefinitions="*,Auto,180">
+                
+                <!-- Log Output -->
+                <Border Grid.Row="0" Background="#0A0C10">
+                    <Grid RowDefinitions="Auto,*">
+                          <Border Classes="SectionHeader" Grid.Row="0">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Text="ACTIVITY LOG" Classes="Label" VerticalAlignment="Center" Grid.Column="0"/>
+
+                            <Button Grid.Column="1" Content="CLEAR" Classes="Secondary" Padding="8,3" FontSize="11" 
+                                    Command="{Binding ClearLogCommand}" Margin="0,0,5,0"/>
+
+                            <Button Grid.Column="2" Content="RESET SETTINGS" Classes="Secondary" Padding="8,3" FontSize="11" 
+                                    Command="{Binding ResetSettingsCommand}"/>
+                        </Grid>
+                    </Border>
+                        <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <!-- ListBox bound to the ObservableCollection in ViewModel -->
+                            <ListBox ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0" Margin="0"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Progress Bar -->
+                <Border Grid.Row="1" Background="#0D0F14" Padding="16,8">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <ProgressBar Grid.Row="0" Grid.ColumnSpan="2" Minimum="0" Maximum="100" 
+                                     Value="{Binding ProgressValue}" Height="6" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding StatusText}" Classes="Status" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="11"/>
+                    </Grid>
+                </Border>
+
+                <!-- Results Table -->
+                <Border Grid.Row="2" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Classes="SectionHeader" Grid.Row="0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="PROCESSED FILES" Classes="Label" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding ResultCountText}" Grid.Column="1" Classes="Value" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/> 
+                            </Grid>
+                        </Border>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <!-- ListBox bound to the ObservableCollection in ViewModel -->
+                            <ListBox ItemsSource="{Binding ProcessedFiles}" Background="Transparent" BorderThickness="0"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+        </Grid>
+
+        <!-- ═══ FOOTER / ACTION BAR ═══ -->
+        <Border Grid.Row="2" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0" Padding="20,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FooterStatusText}" Classes="Status" VerticalAlignment="Center" FontSize="12"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <!-- Cancel button is visible only when sorting -->
+                    <Button Content="■ CANCEL" Classes="Danger" IsVisible="{Binding IsSorting}" Command="{Binding CancelSortCommand}"/>
+                    <!-- Start button is hidden while sorting -->
+                    <Button Content="▶ START SORT" Classes="Primary" MinWidth="140" 
+                            IsVisible="{Binding !IsSorting}" Command="{Binding StartSortCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>
+</file>
+
+<file path="MainWindow.axaml.cs">
+using Avalonia.Controls;
+using Sorter.ViewModels;
+
+namespace Sorter;
+
+public partial class MainWindow : Window
+{
+    /// <summary>
+    /// The constructor initializes the Avalonia components and 
+    /// sets up the DataContext to link the View (XAML) with the ViewModel (Logic).
+    /// </summary>
+    public MainWindow()
+    {
+        InitializeComponent();
+
+        // This is the most important line for MVVM. 
+        // It tells the XAML: "Whenever you see a {Binding}, look inside MainViewModel."
+        DataContext = new MainViewModel();
+    }
+}
+</file>
+
+<file path="Models/Models.cs">
+using System.Text.Json.Serialization;
+
+namespace Sorter.Models;
+
+public class SorterSettings
+{
+    public bool UsePrefix { get; set; } = false;
+    public string Prefix { get; set; } = "IMG";
+    public bool IgnoreNonDatedFiles { get; set; } = false;
+    public bool ShowTokenCost { get; set; } = true;
+    public string LmStudioUrl { get; set; } = "http://127.0.0.1:1234";
+    public string ModelName { get; set; } = "gemma-4-26b";
+    public string SortingFolder { get; set; } = "";
+    public string SortedFolder { get; set; } = "";
+}
+
+public class FileProcessResult
+{
+    public string OriginalPath { get; set; } = "";
+    public string DestinationPath { get; set; } = "";
+    public string NewFileName { get; set; } = "";
+    public string Category { get; set; } = "";
+    public string Status { get; set; } = "";
+    public bool Success { get; set; }
+    public string Error { get; set; } = "";
+}
+
+public class TokenStats
+{
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
+    public double TokensPerSecond { get; set; }
+    public int TotalProcessed { get; set; }
+    public int TotalFiles { get; set; }
+}
+</file>
+
+<file path="Program.cs">
+using Avalonia;
+using System;
+
+namespace Sorter;
+
+class Program
+{
+    [STAThread]
+    public static void Main(string[] args) => BuildAvaloniaApp()
+        .StartWithClassicDesktopLifetime(args);
+
+    public static AppBuilder BuildAvaloniaApp()
+        => AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .LogToTrace();
+}
+</file>
+
+<file path="Services/DateExtractorService.cs">
+using System;
+using System.IO;
+using System.Linq;
+using MetadataExtractor;
+using MetadataExtractor.Formats.Exif;
+
+namespace Sorter.Services;
+
+public static class DateExtractorService
+{
+    private static readonly string[] ImageExtensions =
+        { ".jpg", ".jpeg", ".png", ".gif", ".webm", ".webp" };
+
+    public static bool IsSupportedImage(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLower();
+        return ImageExtensions.Contains(ext);
+    }
+
+    /// <summary>
+    /// Returns the oldest date among EXIF date, file creation, file modified.
+    /// Returns null if no valid date found in 2001-2099 range.
+    /// </summary>
+    public static DateTime? GetOldestDate(string filePath)
+    {
+        DateTime? exifDate = TryGetExifDate(filePath);
+        DateTime? createdDate = TryGetFileDate(filePath, useCreated: true);
+        DateTime? modifiedDate = TryGetFileDate(filePath, useCreated: false);
+
+            var candidates = new[] { exifDate, createdDate, modifiedDate }
+            .Where(d => d.HasValue && d.Value.Year >= 1900 && d.Value.Year <= 2099)
+            .Select(d => d!.Value)
+            .ToList();
+
+        return candidates.Count > 0 ? candidates.Min() : null;
+    }
+
+    /// <summary>
+    /// Checks if filename contains a year in 2001-2099 range.
+    /// </summary>
+    public static bool FileNameContainsYear(string filePath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        for (int year = 2001; year <= 2099; year++)
+        {
+            if (fileName.Contains(year.ToString()))
+                return true;
+        }
+        return false;
+    }
+
+    private static DateTime? TryGetExifDate(string filePath)
+    {
+        try
+        {
+            var ext = Path.GetExtension(filePath).ToLower();
+            // EXIF only available for JPEG/TIFF-based formats
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
+                return null;
+
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+
+            foreach (var dir in directories.OfType<ExifSubIfdDirectory>())
+            {
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt))
+                    return dt;
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2))
+                    return dt2;
+            }
+
+            foreach (var dir in directories.OfType<ExifIfd0Directory>())
+            {
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt))
+                    return dt;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static DateTime? TryGetFileDate(string filePath, bool useCreated)
+    {
+        try
+        {
+            var info = new FileInfo(filePath);
+            return useCreated ? info.CreationTime : info.LastWriteTime;
+        }
+        catch { }
+        return null;
+    }
+}
+</file>
+
+<file path="Services/FileSorterService.cs">
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Sorter.Models;
+
+namespace Sorter.Services;
+
+public class FileSorterService
+{
+    private readonly LmStudioService _lmService;
+
+    public event Action<string>? OnLogMessage;
+    public event Action<FileProcessResult>? OnFileProcessed;
+    public event Action<TokenStats>? OnTokenStatsUpdated;
+
+    private int _totalInputTokens;
+    private int _totalOutputTokens;
+    private double _lastTokensPerSecond;
+    private int _processedCount;
+
+    public FileSorterService(LmStudioService lmService)
+    {
+        _lmService = lmService;
+    }
+
+    public async Task<List<FileProcessResult>> SortFilesAsync(
+        string sortingFolder,
+        string sortedFolder,
+        SorterSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        _totalInputTokens = 0;
+        _totalOutputTokens = 0;
+        _processedCount = 0;
+
+        var results = new List<FileProcessResult>();
+
+        if (!System.IO.Directory.Exists(sortingFolder))
+        {
+            Log($"[ERROR] Sorting folder not found: {sortingFolder}");
+            return results;
+        }
+
+        if (!System.IO.Directory.Exists(sortedFolder))
+        {
+            System.IO.Directory.CreateDirectory(sortedFolder);
+            Log($"[CREATED] Output folder: {sortedFolder}");
+        }
+
+        // Gather all supported image files recursively
+        var allFiles = System.IO.Directory
+            .GetFiles(sortingFolder, "*.*", SearchOption.AllDirectories)
+            .Where(f => DateExtractorService.IsSupportedImage(f))
+            .ToList();
+
+        Log($"[SCAN] Found {allFiles.Count} image files in: {sortingFolder}");
+
+        // Apply "ignore non-dated" filter
+        if (settings.IgnoreNonDatedFiles)
+        {
+            var before = allFiles.Count;
+            allFiles = allFiles
+                .Where(f => DateExtractorService.FileNameContainsYear(f) ||
+                            DateExtractorService.GetOldestDate(f).HasValue)
+                .ToList();
+            Log($"[FILTER] Skipped {before - allFiles.Count} non-dated files");
+        }
+
+        var totalFiles = allFiles.Count;
+        Log($"[QUEUE] Processing {totalFiles} files...");
+
+        for (int i = 0; i < allFiles.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var filePath = allFiles[i];
+            var result = await ProcessSingleFileAsync(filePath, sortedFolder, settings, i + 1, totalFiles, cancellationToken);
+            results.Add(result);
+            OnFileProcessed?.Invoke(result);
+
+            _processedCount++;
+            OnTokenStatsUpdated?.Invoke(new TokenStats
+            {
+                InputTokens = _totalInputTokens,
+                OutputTokens = _totalOutputTokens,
+                TokensPerSecond = _lastTokensPerSecond,
+                TotalProcessed = _processedCount,
+                TotalFiles = totalFiles
+            });
+        }
+
+        Log($"[DONE] Completed. {results.Count(r => r.Success)} succeeded, {results.Count(r => !r.Success)} failed.");
+        return results;
+    }
+
+    private async Task<FileProcessResult> ProcessSingleFileAsync(
+        string filePath,
+        string sortedFolder,
+        SorterSettings settings,
+        int index,
+        int total,
+        CancellationToken cancellationToken)
+    {
+        var result = new FileProcessResult { OriginalPath = filePath };
+        var fileName = Path.GetFileName(filePath);
+
+        Log($"[{index}/{total}] Analyzing: {fileName}");
+
+        try
+        {
+            // Get oldest date
+            var date = DateExtractorService.GetOldestDate(filePath);
+            string dateStr;
+            if (date.HasValue)
+            {
+                dateStr = $"{date.Value.Year}.{date.Value.Month:D2}.{date.Value.Day:D2}";
+            }
+            else
+            {
+                dateStr = "0000.00.00";
+                Log($"  [WARN] No valid date found for: {fileName}");
+            }
+
+            // Analyze image with LLM
+            Log($"  [AI] Sending to LM Studio...");
+            var analysis = await _lmService.AnalyzeImageAsync(filePath, cancellationToken);
+
+            _totalInputTokens += analysis.InputTokens;
+            _totalOutputTokens += analysis.OutputTokens;
+            _lastTokensPerSecond = analysis.TokensPerSecond;
+
+            Log($"  [AI] Category: {analysis.Category} | Desc: {analysis.Description} | Tokens: {analysis.InputTokens}in/{analysis.OutputTokens}out @ {analysis.TokensPerSecond:F1} t/s");
+
+            // Build new filename
+            var ext = Path.GetExtension(filePath).ToLower();
+            // Normalize .webm to .webp for still images (webm is typically video but listed in requirements)
+            string newName;
+            if (settings.UsePrefix && !string.IsNullOrWhiteSpace(settings.Prefix))
+            {
+                var prefix = settings.Prefix.Length > 8
+                    ? settings.Prefix[..8]
+                    : settings.Prefix;
+                newName = $"{prefix}.{dateStr}.{analysis.Description}{ext}";
+            }
+            else
+            {
+                newName = $"{dateStr}.{analysis.Description}{ext}";
+            }
+
+            // Create category subfolder
+            var categoryFolder = Path.Combine(sortedFolder, analysis.Category);
+            if (!System.IO.Directory.Exists(categoryFolder))
+            {
+                System.IO.Directory.CreateDirectory(categoryFolder);
+            }
+
+            // Handle filename collisions
+            var destPath = Path.Combine(categoryFolder, newName);
+		destPath = GetUniqueFilePath(destPath);
+
+// Move the file instead of copying it
+File.Move(filePath, destPath);
+
+            result.Success = true;
+            result.NewFileName = Path.GetFileName(destPath);
+            result.DestinationPath = destPath;
+            result.Category = analysis.Category;
+            result.Status = "OK";
+
+            Log($"  [OK] -> {analysis.Category}/{Path.GetFileName(destPath)}");
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.Status = "Cancelled";
+            result.Error = "Operation was cancelled";
+            throw;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Status = "Error";
+            result.Error = ex.Message;
+            Log($"  [ERROR] {fileName}: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    private static string GetUniqueFilePath(string path)
+    {
+        if (!File.Exists(path)) return path;
+
+        var dir = Path.GetDirectoryName(path)!;
+        var nameNoExt = Path.GetFileNameWithoutExtension(path);
+        var ext = Path.GetExtension(path);
+        int counter = 1;
+
+        while (File.Exists(path))
+        {
+            path = Path.Combine(dir, $"{nameNoExt}_{counter++}{ext}");
+        }
+        return path;
+    }
+
+    private void Log(string message)
+    {
+        OnLogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}");
+    }
+}
+</file>
+
+<file path="Services/LmStudioService.cs">
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace Sorter.Services;
+
+public class LmStudioService : IDisposable
+{
+    private readonly HttpClient _client;
+    private string _baseUrl;
+   
+
+  private string _modelName = "";
+    public LmStudioService(string baseUrl, string modelName)
+    {
+        _baseUrl = baseUrl.Trim().TrimEnd('/');
+        _modelName = modelName;
+
+        _client = new HttpClient
+        {
+            // Increased timeout to 2 minutes for vision models
+            Timeout = TimeSpan.FromMinutes(2)
+        };
+
+        _client.DefaultRequestHeaders.Add("Accept", "application/json");
+    }
+
+    public void UpdateSettings(string baseUrl, string modelName)
+{
+    _baseUrl = baseUrl.Trim().TrimEnd('/');
+    
+    // Strip out trailing /v1 if the user accidentally pasted it
+    if (_baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+    {
+        _baseUrl = _baseUrl.Substring(0, _baseUrl.Length - 3).TrimEnd('/');
+    }
+    
+    _modelName = modelName;
+}
+
+   public async Task<(bool IsSuccess, string Message)> TestConnectionAsync()
+{
+    try
+    {
+        var url = $"{_baseUrl}/v1/models";
+        var response = await _client.GetAsync(url);
+
+        if (!response.IsSuccessStatusCode)
+            return (false, $"HTTP Error: {response.StatusCode}");
+
+        var content = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(content) || !content.Contains("data"))
+            return (false, "Connected, but response was invalid or empty.");
+
+        return (true, "OK");
+    }
+    catch (Exception ex)
+    {
+        return (false, $"Exception: {ex.Message}");
+    }
+}
+
+    /// <summary>
+    /// Analyzes an image and returns:
+    /// - A one-word folder category
+    /// - A three-word description for the filename
+    /// - Token stats
+    /// </summary>
+    public async Task<ImageAnalysisResult> AnalyzeImageAsync(
+        string imagePath,
+        CancellationToken cancellationToken = default)
+    {
+        byte[] imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
+        string base64Image = Convert.ToBase64String(imageBytes);
+        string ext = Path.GetExtension(imagePath).ToLower();
+        string mimeType = ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".webm" => "video/webm",
+            _ => "image/jpeg"
+        };
+
+        var requestBody = new
+        {
+            model = _modelName,
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new
+                        {
+                            type = "image_url",
+                            image_url = new { url = $"data:{mimeType};base64,{base64Image}" }
+                        },
+                        new
+                        {
+                            type = "text",
+                            text = @"Analyze this image carefully. Respond with ONLY valid JSON in this exact format, no other text:
+{
+  ""category"": ""singleword"",
+  ""description"": ""three.word.description""
+}
+
+Rules:
+- category: ONE word describing the main subject/theme (e.g. nature, food, people, animals, vehicles, architecture, sports, art)
+- description: EXACTLY three words joined with dots describing the specific scene (e.g. man.with.dog, kids.birthday.party, mountain.snow.sunset)
+- Use only lowercase letters and dots
+- Be specific but concise"
+                        }
+                    }
+                }
+            },
+            max_tokens = 100,
+            temperature = 0.1
+        };
+
+        var json = JsonConvert.SerializeObject(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var startTime = DateTime.UtcNow;
+        var response = await _client.PostAsync($"{_baseUrl}/v1/chat/completions", content, cancellationToken);
+        var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
+
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseObj = JObject.Parse(responseJson);
+
+        var messageContent = responseObj["choices"]?[0]?["message"]?["content"]?.ToString() ?? "";
+        var inputTokens = responseObj["usage"]?["prompt_tokens"]?.Value<int>() ?? 0;
+        var outputTokens = responseObj["usage"]?["completion_tokens"]?.Value<int>() ?? 0;
+        var totalTokens = inputTokens + outputTokens;
+
+        // Parse the JSON response from the model
+        string category = "unsorted";
+        string description = "unknown.image.file";
+
+         try
+        {
+            // Use Regex to extract the JSON object even if the model includes conversational text
+            var jsonMatch = System.Text.RegularExpressions.Regex.Match(messageContent, @"\{.*\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+            string cleanContent = jsonMatch.Success ? jsonMatch.Value : messageContent;
+
+            var parsed = JObject.Parse(cleanContent);
+            category = SanitizeSingleWord(parsed["category"]?.ToString() ?? "unsorted");
+            description = SanitizeThreeWords(parsed["description"]?.ToString() ?? "unknown.image.file");
+        }
+        catch
+        {
+            // Fallback: try to extract from raw text
+            category = "unsorted";
+            description = "unrecognized.image.file";
+        }
+
+        return new ImageAnalysisResult
+        {
+            Category = category,
+            Description = description,
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens,
+            TokensPerSecond = elapsed > 0 ? totalTokens / elapsed : 0
+        };
+    }
+
+    private static string SanitizeSingleWord(string input)
+    {
+        var clean = System.Text.RegularExpressions.Regex.Replace(
+            input.ToLower().Trim(), @"[^a-z0-9]", "");
+        return string.IsNullOrEmpty(clean) ? "unsorted" : clean[..Math.Min(clean.Length, 20)];
+    }
+
+    private static string SanitizeThreeWords(string input)
+    {
+        var parts = input.ToLower().Trim().Split(new[] { '.', ' ', '-', '_' },
+            StringSplitOptions.RemoveEmptyEntries);
+        var cleanParts = new System.Collections.Generic.List<string>();
+        foreach (var p in parts)
+        {
+            var clean = System.Text.RegularExpressions.Regex.Replace(p, @"[^a-z0-9]", "");
+            if (!string.IsNullOrEmpty(clean))
+                cleanParts.Add(clean);
+            if (cleanParts.Count == 3) break;
+        }
+        while (cleanParts.Count < 3) cleanParts.Add("file");
+        return string.Join(".", cleanParts);
+    }
+
+    public void Dispose() => _client.Dispose();
+}
+
+public class ImageAnalysisResult
+{
+    public string Category { get; set; } = "unsorted";
+    public string Description { get; set; } = "unknown.image.file";
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
+    public double TokensPerSecond { get; set; }
+}
+</file>
+
+<file path="Services/SettingReset.cs">
+using System;
+using System.IO;
+using Newtonsoft.Json;
+using Sorter.Services;
+using Sorter.Models;
+
+namespace Sorter.Utilities; // Or whatever namespace you prefer for helper classes
+
+public static class SettingReset
+{
+    /// <summary>
+    /// Performs a hard reset of the application settings by 
+    /// generating a fresh SorterSettings object and saving it via SettingsService.
+    /// </summary>
+    public static void Execute()
+    {
+        try
+        {
+            // 1. Create a new instance of your settings model.
+            // This will use the default values you have defined in the SorterSettings class.
+            var freshSettings = new SorterSettings();
+
+            // 2. Use the existing SettingsService to overwrite the file on disk.
+            SettingsService.Save(freshSettings);
+        }
+        catch (Exception ex)
+        {
+            // Since this is a utility, you might want to throw the error 
+            // so your GUI can catch it and show a MessageBox to the user.
+            throw new Exception($"Critical failure during settings reset: {ex.Message}");
+        }
+    }
+}
+</file>
+
+<file path="Services/SettingsService.cs">
+using System;
+using System.IO;
+using Newtonsoft.Json;
+using Sorter.Models;
+
+namespace Sorter.Services;
+
+public static class SettingsService
+{
+    private static readonly string SettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Sorter", "settings.json");
+
+    public static SorterSettings Load()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath))
+            {
+                var json = File.ReadAllText(SettingsPath);
+                return JsonConvert.DeserializeObject<SorterSettings>(json) ?? new SorterSettings();
+            }
+        }
+        catch { }
+        return new SorterSettings();
+    }
+
+    public static void Save(SorterSettings settings)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(SettingsPath)!;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            File.WriteAllText(SettingsPath, JsonConvert.SerializeObject(settings, Formatting.Indented));
+        }
+        catch { }
+    }
+}
+</file>
+
+<file path="Sorter.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AssemblyName>Sorter</AssemblyName>
+    <RootNamespace>Sorter</RootNamespace>
+  <ApplicationIcon>Icon.ico</ApplicationIcon>
+ </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+	
+	<Resource Include="Icon.ico" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="Styles/AppStyles.axaml">
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Dark industrial theme with amber accents -->
+    <Style Selector="Window">
+        <Setter Property="Background" Value="#0D0F14"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock">
+        <Setter Property="Foreground" Value="#C8D0DC"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="#161A22"/>
+        <Setter Property="Foreground" Value="#E8C55A"/>
+        <Setter Property="BorderBrush" Value="#2A3040"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="Padding" Value="8,6"/>
+    </Style>
+
+    <Style Selector="TextBox:focus">
+        <Setter Property="BorderBrush" Value="#E8C55A"/>
+    </Style>
+
+    <Style Selector="Button.Primary">
+        <Setter Property="Background" Value="#E8C55A"/>
+        <Setter Property="Foreground" Value="#0D0F14"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#F0D070"/>
+    </Style>
+
+    <Style Selector="Button.Primary:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#C8A840"/>
+    </Style>
+
+    <Style Selector="Button.Primary:disabled /template/ ContentPresenter">
+        <Setter Property="Background" Value="#3A3020"/>
+        <Setter Property="TextElement.Foreground" Value="#6A6040"/>
+    </Style>
+
+    <Style Selector="Button.Secondary">
+        <Setter Property="Background" Value="#1E2430"/>
+        <Setter Property="Foreground" Value="#C8D0DC"/>
+        <Setter Property="BorderBrush" Value="#2A3040"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="12,7"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#252D3A"/>
+        <Setter Property="BorderBrush" Value="#E8C55A"/>
+    </Style>
+
+    <Style Selector="Button.Danger">
+        <Setter Property="Background" Value="#2A1515"/>
+        <Setter Property="Foreground" Value="#E05050"/>
+        <Setter Property="BorderBrush" Value="#3A2020"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="12,7"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="CheckBox">
+        <Setter Property="Foreground" Value="#C8D0DC"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="CheckBox /template/ Border#NormalRectangle">
+        <Setter Property="BorderBrush" Value="#3A4050"/>
+        <Setter Property="Background" Value="#161A22"/>
+    </Style>
+
+    <Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
+        <Setter Property="Background" Value="#E8C55A"/>
+        <Setter Property="BorderBrush" Value="#E8C55A"/>
+    </Style>
+
+    <Style Selector="ProgressBar">
+        <Setter Property="Background" Value="#161A22"/>
+        <Setter Property="Foreground" Value="#E8C55A"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="Height" Value="4"/>
+    </Style>
+
+    <Style Selector="ScrollViewer">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="#131720"/>
+        <Setter Property="BorderBrush" Value="#1E2430"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="16"/>
+    </Style>
+
+    <Style Selector="Border.SectionHeader">
+        <Setter Property="Background" Value="#0D1018"/>
+        <Setter Property="BorderBrush" Value="#1E2430"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="16,10"/>
+    </Style>
+
+    <Style Selector="TextBlock.Label">
+        <Setter Property="Foreground" Value="#6A7888"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock.Value">
+        <Setter Property="Foreground" Value="#E8C55A"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock.Heading">
+        <Setter Property="Foreground" Value="#E8F0FC"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock.Status">
+        <Setter Property="Foreground" Value="#4A8080"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock.Error">
+        <Setter Property="Foreground" Value="#E05050"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="TextBlock.Success">
+        <Setter Property="Foreground" Value="#50C080"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+    </Style>
+
+    <Style Selector="ListBox">
+        <Setter Property="Background" Value="#0D0F14"/>
+        <Setter Property="BorderBrush" Value="#1E2430"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="#8090A0"/>
+    </Style>
+
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1A2030"/>
+    </Style>
+
+    <Style Selector="Separator">
+        <Setter Property="Background" Value="#1E2430"/>
+        <Setter Property="Height" Value="1"/>
+    </Style>
+
+</Styles>
+</file>
+
+<file path="ViewModels/MainViewModel.cs">
+using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Avalonia.Media.Imaging;
+using Sorter.Models;
+using Sorter.Services;
+using Sorter.Utilities;
+using System.Collections.Generic;
+namespace Sorter.ViewModels;
+
+public class MainViewModel : BindableBase
+{
+    private readonly LmStudioService _lmService;
+    private readonly FileSorterService _sorterService;
+    private CancellationTokenSource? _cts;
+
+    // --- Properties ---
+// --- 1. Folder & Path Settings ---
+private string _sortingFolder = "";
+public string SortingFolder { get => _sortingFolder; set => RaiseAndSetIfChanged(ref _sortingFolder, value); }
+
+private string _sortedFolder = "";
+public string SortedFolder { get => _sortedFolder; set => RaiseAndSetIfChanged(ref _sortedFolder, value); }
+
+// --- 2. AI / LM Studio Settings ---
+private string _lmStudioUrl = "http://127.0.0.1:1234";
+public string LmStudioUrl { get => _lmStudioUrl; set => RaiseAndSetIfChanged(ref _lmStudioUrl, value); }
+
+private string _modelName = "gemma-4-26b";
+public string ModelName { get => _modelName; set => RaiseAndSetIfChanged(ref _modelName, value); }
+
+// --- 3. Sorting Logic Options ---
+private bool _usePrefix = false;
+public bool UsePrefix { get => _usePrefix; set => RaiseAndSetIfChanged(ref _usePrefix, value); }
+
+private string _prefix = "IMG";
+public string Prefix { get => _prefix; set => RaiseAndSetIfChanged(ref _prefix, value); }
+
+private bool _ignoreNonDatedFiles = false;
+public bool IgnoreNonDatedFiles { get => _ignoreNonDatedFiles; set => RaiseAndSetIfChanged(ref _ignoreNonDatedFiles, value); }
+
+private bool _showTokenCost = true;
+public bool ShowTokenCost { get => _showTokenCost; set => RaiseAndSetIfChanged(ref _showTokenCost, value); }
+public RelayCommand StartSortCommand { get; }
+public RelayCommand CancelSortCommand { get; }
+// --- 4. Execution & Progress State ---
+private bool _isSorting;
+public bool IsSorting 
+{ 
+    get => _isSorting; 
+    set 
+    {
+        // 1. Store the old value to check if a change actually occurred
+        bool oldValue = _isSorting;
+
+        // 2. Call the method (which returns void)
+        RaiseAndSetIfChanged(ref _isSorting, value);
+
+        // 3. If the new value is different from the old value, trigger the commands
+        if (oldValue != value)
+        {
+            StartSortCommand.RaiseCanExecuteChanged();
+            CancelSortCommand.RaiseCanExecuteChanged();
+        }
+    } 
+}
+
+private double _progressValue;
+public double ProgressValue { get => _progressValue; set => RaiseAndSetIfChanged(ref _progressValue, value); }
+
+private string _progressText = "0/0";
+public string ProgressText { get => _progressText; set => RaiseAndSetIfChanged(ref _progressText, value); }
+
+// --- 5. Status & Feedback (UI Text) ---
+private string _statusText = "Ready";
+public string StatusText { get => _statusText; set => RaiseAndSetIfChanged(ref _statusText, value); }
+
+private string _connectionStatusText = "LM STUDIO: DISCONNECTED";
+public string ConnectionStatusText { get => _connectionStatusText; set => RaiseAndSetIfChanged(ref _connectionStatusText, value); }
+
+private string _footerStatusText = "Configure folders above and press START SORT";
+public string FooterStatusText { get => _footerStatusText; set => RaiseAndSetIfChanged(ref _footerStatusText, value); }
+
+private string _resultCountText = "0 files";
+public string ResultCountText { get => _resultCountText; set => RaiseAndSetIfChanged(ref _resultCountText, value); }
+
+// --- 6. Token Statistics ---
+private int _inputTokens;
+public int InputTokens { get => _inputTokens; set => RaiseAndSetIfChanged(ref _inputTokens, value); }
+
+private int _outputTokens;
+public int OutputTokens { get => _outputTokens; set => RaiseAndSetIfChanged(ref _outputTokens, value); }
+
+private string _tokensPerSecond = "—";
+public string TokensPerSecond { get => _tokensPerSecond; set => RaiseAndSetIfChanged(ref _tokensPerSecond, value); }
+
+// --- 7. Image Preview State ---
+private Bitmap? _currentImageSource;
+public Bitmap? CurrentImageSource { get => _currentImageSource; set => RaiseAndSetIfChanged(ref _currentImageSource, value); }
+
+private bool _hasImage;
+public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasImage, value); }
+
+
+    public ObservableCollection<string> LogEntries { get; } = new();
+    public ObservableCollection<string> ProcessedFiles { get; } = new();
+	
+	
+    // --- Commands ---
+
+  
+    public ICommand TestConnectionCommand { get; }
+    public ICommand ClearLogCommand { get; }
+    public ICommand ResetSettingsCommand { get; }
+    public ICommand InstallLmStudioCommand { get; }
+    public ICommand LoadLmStudioCommand { get; }
+    public ICommand BrowseSourceCommand { get; }
+    public ICommand BrowseOutputCommand { get; }
+
+    public MainViewModel()
+    {
+        // 1. Load initial settings
+        var settings = SettingsService.Load();
+        SortingFolder = settings.SortingFolder;
+        SortedFolder = settings.SortedFolder;
+        LmStudioUrl = settings.LmStudioUrl;
+        ModelName = settings.ModelName;
+        UsePrefix = settings.UsePrefix;
+        Prefix = settings.Prefix;
+        IgnoreNonDatedFiles = settings.IgnoreNonDatedFiles;
+        ShowTokenCost = settings.ShowTokenCost;
+
+        // 2. Initialize Services
+        _lmService = new LmStudioService(LmStudioUrl, ModelName);
+        _sorterService = new FileSorterService(_lmService);
+
+        // 3. Setup Commands
+        StartSortCommand = new RelayCommand(async () => await ExecuteSort(), () => !IsSorting);
+        CancelSortCommand = new RelayCommand(() => ExecuteCancel(), () => IsSorting);
+        TestConnectionCommand = new RelayCommand(async () => await ExecuteTestConnection());
+        ClearLogCommand = new RelayCommand(() => LogEntries.Clear());
+        ResetSettingsCommand = new RelayCommand(ExecuteResetSettings);
+        InstallLmStudioCommand = new RelayCommand(ExecuteInstallCli);
+        LoadLmStudioCommand = new RelayCommand(ExecuteLoadServer);
+        BrowseSourceCommand = new RelayCommand(async () => await BrowseFolder(true));
+        BrowseOutputCommand = new RelayCommand(async () => await BrowseFolder(false));
+
+        // 4. Wire up Service Events
+        _sorterService.OnLogMessage += (msg) => AppendLog(msg);
+        _sorterService.OnFileProcessed += OnFileProcessed;
+        _sorterService.OnTokenStatsUpdated += OnTokenStatsUpdated;
+    }
+
+    // --- Command Implementations ---
+
+    private async Task ExecuteSort()
+    {
+        if (string.IsNullOrWhiteSpace(SortingFolder) || !Directory.Exists(SortingFolder))
+        {
+            FooterStatusText = "⚠ Please select a valid source folder.";
+            AppendLog("[ERROR] Invalid or missing source folder.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SortedFolder))
+        {
+            FooterStatusText = "⚠ Please select a valid output folder.";
+            AppendLog("[ERROR] Output folder not set.");
+            return;
+        }
+
+        // Update settings in service before starting
+        _lmService.UpdateSettings(LmStudioUrl, ModelName);
+        
+        IsSorting = true;
+        ProcessedFiles.Clear();
+        FooterStatusText = "Sorting in progress...";
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            // We need to create a temporary settings object for the service call 
+            // that matches what the UI currently shows
+            var currentSettings = new SorterSettings
+            {
+                SortingFolder = SortingFolder,
+                SortedFolder = SortedFolder,
+                LmStudioUrl = LmStudioUrl,
+                ModelName = ModelName,
+                UsePrefix = UsePrefix,
+                Prefix = Prefix,
+                IgnoreNonDatedFiles = IgnoreNonDatedFiles,
+                ShowTokenCost = ShowTokenCost
+            };
+
+            var results = await _sorterService.SortFilesAsync(
+                currentSettings.SortingFolder,
+                currentSettings.SortedFolder,
+                currentSettings,
+                _cts.Token);
+
+            FooterStatusText = $"Done! {results.Count(r => r.Success)} sorted, {results.Count(r => !r.Success)} failed.";
+        }
+        catch (OperationCanceledException)
+        {
+            FooterStatusText = "Sort cancelled.";
+            AppendLog("[CANCEL] Operation cancelled by user.");
+        }
+        catch (Exception ex)
+        {
+            FooterStatusText = $"Error: {ex.Message}";
+            AppendLog($"[FATAL] {ex.Message}");
+        }
+        finally
+        {
+            IsSorting = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void ExecuteCancel()
+    {
+        _cts?.Cancel();
+        FooterStatusText = "Cancelling...";
+    }
+
+    private async Task ExecuteTestConnection()
+    {
+        ConnectionStatusText = "LM STUDIO: TESTING...";
+        _lmService.UpdateSettings(LmStudioUrl, ModelName);
+        
+        var result = await _lmService.TestConnectionAsync();
+        ConnectionStatusText = result.IsSuccess ? "LM STUDIO: CONNECTED" : "LM STUDIO: UNREACHABLE";
+        AppendLog(result.IsSuccess 
+            ? $"[OK] LM Studio connected at {LmStudioUrl}" 
+            : $"[ERROR] Connection failed: {result.Message}");
+    }
+
+    private void ExecuteResetSettings()
+    {
+        try
+        {
+            SettingReset.Execute();
+            var fresh = SettingsService.Load();
+            // Update properties to trigger UI refresh
+            SortingFolder = fresh.SortingFolder;
+            SortedFolder = fresh.SortedFolder;
+            LmStudioUrl = fresh.LmStudioUrl;
+            ModelName = fresh.ModelName;
+            UsePrefix = fresh.UsePrefix;
+            Prefix = fresh.Prefix;
+            IgnoreNonDatedFiles = fresh.IgnoreNonDatedFiles;
+            ShowTokenCost = fresh.ShowTokenCost;
+            AppendLog("[INFO] Settings reset to defaults.");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[ERROR] Reset failed: {ex.Message}");
+        }
+    }
+
+    private void ExecuteInstallCli()
+    {
+        // Note: In a real MVVM app, this logic should be in an LmStudioCliService
+        // For now, we keep it here to maintain your existing functionality
+        AppendLog("[INFO] Starting LM Studio CLI installation...");
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Verb = "runas",
+                UseShellExecute = true,
+                Arguments = "-Command \"npx lmstudio install-cli; lms get gemma-4-26b\""
+            };
+            var p = System.Diagnostics.Process.Start(psi);
+            p?.WaitForExit();
+            AppendLog("[SUCCESS] Installation process finished.");
+        }
+        catch (Exception ex) { AppendLog($"[ERROR] Install failed: {ex.Message}"); }
+    }
+
+    private void ExecuteLoadServer()
+    {
+        AppendLog("[INFO] Loading Gemma-4-26b and starting server...");
+        Task.Run(() =>
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Verb = "runas",
+                    UseShellExecute = true,
+                    Arguments = "-Command \"lms load gemma-4-26b; Start-Sleep -s 1; lms server start\""
+                };
+                var p = System.Diagnostics.Process.Start(psi);
+                p?.WaitForExit();
+                AppendLog("[SUCCESS] LM Studio Server process finished.");
+            }
+            catch (Exception ex) { AppendLog($"[ERROR] Server launch failed: {ex.Message}"); }
+        });
+    }
+
+    private async Task BrowseFolder(bool isSource)
+    {
+        // This requires access to the Window's StorageProvider. 
+        // In a pure MVVM, you'd use a Service, but for this refactor, we'll assume 
+        // the command is called from the View or handled via a service.
+        // Since we can't easily get StorageProvider from ViewModel without passing it,
+        // I will leave a placeholder. In your actual implementation, you might need 
+        // to call this from the code-behind or pass the Window reference.
+    }
+
+    // --- Event Handlers (Called by Services) ---
+
+    private void AppendLog(string message)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            LogEntries.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+            // Auto-scroll logic is usually handled in the View via a behavior or code-behind
+        });
+    }
+
+    private void OnFileProcessed(FileProcessResult result)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+        {
+            // Update Results List
+            var entry = result.Success 
+                ? $"✓  [{result.Category}]  {result.NewFileName}" 
+                : $"✗  {Path.GetFileName(result.OriginalPath)}  — {result.Error}";
+            ProcessedFiles.Add(entry);
+            ResultCountText = $"{ProcessedFiles.Count} files";
+
+            // Update Image Preview
+            try
+            {
+                if (File.Exists(result.OriginalPath))
+                {
+                    using var stream = File.OpenRead(result.OriginalPath);
+                    CurrentImageSource = new Bitmap(stream);
+                    HasImage = true;
+                }
+                else
+                {
+                    HasImage = false;
+                }
+            }
+            catch { HasImage = false; }
+        });
+    }
+
+    private void OnTokenStatsUpdated(TokenStats stats)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            InputTokens = stats.InputTokens;
+            OutputTokens = stats.OutputTokens;
+            TokensPerSecond = stats.TokensPerSecond > 0 ? $"{stats.TokensPerSecond:F1} t/s" : "—";
+            ProgressText = $"{stats.TotalProcessed}/{stats.TotalFiles}";
+            
+            if (stats.TotalFiles > 0)
+                ProgressValue = (double)stats.TotalProcessed / stats.TotalFiles * 100;
+        });
+    }
+}
+
+// --- MVVM Helpers ---
+
+public class BindableBase : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void RaiseAndSetIfChanged<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
+
+public class RelayCommand : ICommand
+{
+    private readonly Action _execute;
+    private readonly Func<bool>? _canExecute;
+
+    public RelayCommand(Action execute, Func<bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
+    public void Execute(object? parameter) => _execute();
+
+    // In Avalonia, we define the event. 
+    // To fix the warning, we must actually use it or provide a way to trigger it.
+    public event EventHandler? CanExecuteChanged;
+
+    // Add this helper method so your ViewModel can tell the command to refresh
+    public void RaiseCanExecuteChanged()
+    {
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+}
+</file>
+
+</files>

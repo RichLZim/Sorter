@@ -1,0 +1,262 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Sorter.ViewModels"
+        x:Class="Sorter.MainWindow"
+        x:DataType="vm:MainViewModel" 
+        Title="Sorterz — AI Image Organizer"
+        Width="980" Height="720"
+        MinWidth="860" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0D0F14"
+        Icon="/Assets/Icon.ico">
+
+    <!-- This allows the designer to show data while you are coding -->
+    <Design.DataContext>
+        <vm:MainViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ═══ HEADER ═══ -->
+        <Border Grid.Row="0" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" Margin="20,14">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14">
+                    <Image Source="/Assets/logo64.png" Height="32" Width="32"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SORTER" Classes="Heading" FontSize="20"/>
+                        <TextBlock Text="AI-POWERED IMAGE ORGANIZER" Classes="Label" FontSize="11" Margin="0,1,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Connection Status is now bound to ViewModel -->
+                    <Ellipse x:Name="ConnectionIndicator" Width="8" Height="8" Fill="#3A4050"/>
+                    <TextBlock Text="{Binding ConnectionStatusText}" Classes="Label" VerticalAlignment="Center"/>
+					 
+                    <Button Content="TEST" 
+                            Classes="Secondary" 
+                            Padding="8,4" FontSize="11" 
+                            Command="{Binding TestConnectionCommand}"/>
+
+                    <Button Content="LM INSTALL" 
+                            Background="#228B22" 
+                            Foreground="White"
+                            Padding="24,4" 
+                            FontSize="11" 
+                            Command="{Binding InstallLmStudioCommand}"/>
+
+                    <Button Content="START LM SERVER" 
+                            Background="#228B22" 
+                            Foreground="White"
+                            Padding="24,4" 
+                            FontSize="11" 
+                            Command="{Binding LoadLmStudioCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <Grid Grid.Row="1" ColumnDefinitions="300,*">
+
+            <!-- ═══ LEFT PANEL: CONTROLS ═══ -->
+            <Border Grid.Column="0" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16" Spacing="14">
+
+                        <!-- FOLDERS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="FOLDERS" Classes="Label"/>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="SOURCE (to sort)" Classes="Label" FontSize="10"/>
+                                    <Grid ColumnDefinitions="*,6,Auto">
+                                        <TextBox Text="{Binding SortingFolder}" Grid.Column="0" Watermark="C:\path\to\source..."/>
+                                        <Button Grid.Column="2" Content="···" Classes="Secondary"
+                                                Padding="10,6" Command="{Binding BrowseSourceCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="OUTPUT (sorted into)" Classes="Label" FontSize="10"/>
+                                    <Grid ColumnDefinitions="*,6,Auto">
+                                        <TextBox Text="{Binding SortedFolder}" Grid.Column="0" Watermark="C:\path\to\output..."/>
+                                        <Button Grid.Column="2" Content="···" Classes="Secondary"
+                                                Padding="10,6" Command="{Binding BrowseOutputCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LM STUDIO SETTINGS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="LM STUDIO" Classes="Label"/>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="SERVER URL" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding LmStudioUrl}"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="MODEL NAME" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding ModelName}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- RENAME OPTIONS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="RENAME OPTIONS" Classes="Label"/>
+
+                                <StackPanel Spacing="6">
+                                    <CheckBox IsChecked="{Binding UsePrefix}" Content="Use Prefix on Rename"/>
+                                    
+                                    <!-- Visibility bound to the UsePrefix property -->
+                                    <StackPanel Spacing="4" IsVisible="{Binding UsePrefix}">
+                                        <TextBlock Text="PREFIX (max 8 chars)" Classes="Label" FontSize="10"/>
+                                        <TextBox Text="{Binding Prefix}" MaxLength="8" Watermark="IMG"/>
+                                        <TextBlock Text="Format: PREFIX.YEAR.MM.DD.three.word.desc.ext"
+                                                   Classes="Status" FontSize="10" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock Text="Format: YEAR.MM.DD.three.word.desc.ext"
+                                               Classes="Status" FontSize="10" TextWrapping="Wrap"
+                                               IsVisible="{Binding !UsePrefix}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- FILTER OPTIONS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="FILTER OPTIONS" Classes="Label"/>
+                                <CheckBox IsChecked="{Binding IgnoreNonDatedFiles}" Content="Ignore non-dated files"/>
+                                <TextBlock Text="Skips files with no date in 2001–2099 range"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TOKEN STATS CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <CheckBox IsChecked="{Binding ShowTokenCost}" Content="Show Token Cost / Speed"/>
+
+                                <Border Background="#0D0F14" BorderBrush="#1E2430" 
+                                        BorderThickness="1" CornerRadius="4" Padding="10,8"
+                                        IsVisible="{Binding ShowTokenCost}">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding InputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="OUTPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OutputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TokensPerSecond}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS" Classes="Label" FontSize="10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- IMAGE PREVIEW CARD -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="CURRENT IMAGE PREVIEW" Classes="Label"/>
+                                
+                                <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="4" 
+                                        ClipToBounds="True" Height="250" Background="#1A1C23">
+                                    <Panel>
+                                        <!-- Placeholder shows when no image is bound -->
+                                        <TextBlock Text="No Image Loaded" 
+                                                   VerticalAlignment="Center" 
+                                                   HorizontalAlignment="Center" 
+                                                   Foreground="#444444" 
+                                                   FontSize="11"
+                                                   IsVisible="{Binding !HasImage}"/>
+
+                                        <!-- The actual Image control bound to the current file path -->
+                                        <Image Source="{Binding CurrentImageSource}" Stretch="Uniform" />
+                                    </Panel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- ═══ RIGHT PANEL: LOG & RESULTS ═══ -->
+            <Grid Grid.Column="1" RowDefinitions="*,Auto,180">
+                
+                <!-- Log Output -->
+                <Border Grid.Row="0" Background="#0A0C10">
+                    <Grid RowDefinitions="Auto,*">
+                          <Border Classes="SectionHeader" Grid.Row="0">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Text="ACTIVITY LOG" Classes="Label" VerticalAlignment="Center" Grid.Column="0"/>
+
+                            <Button Grid.Column="1" Content="CLEAR" Classes="Secondary" Padding="8,3" FontSize="11" 
+                                    Command="{Binding ClearLogCommand}" Margin="0,0,5,0"/>
+
+                            <Button Grid.Column="2" Content="RESET SETTINGS" Classes="Secondary" Padding="8,3" FontSize="11" 
+                                    Command="{Binding ResetSettingsCommand}"/>
+                        </Grid>
+                    </Border>
+                        <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <!-- ListBox bound to the ObservableCollection in ViewModel -->
+                            <ListBox ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0" Margin="0"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Progress Bar -->
+                <Border Grid.Row="1" Background="#0D0F14" Padding="16,8">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <ProgressBar Grid.Row="0" Grid.ColumnSpan="2" Minimum="0" Maximum="100" 
+                                     Value="{Binding ProgressValue}" Height="6" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding StatusText}" Classes="Status" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="11"/>
+                    </Grid>
+                </Border>
+
+                <!-- Results Table -->
+                <Border Grid.Row="2" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Classes="SectionHeader" Grid.Row="0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="PROCESSED FILES" Classes="Label" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding ResultCountText}" Grid.Column="1" Classes="Value" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/> 
+                            </Grid>
+                        </Border>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <!-- ListBox bound to the ObservableCollection in ViewModel -->
+                            <ListBox ItemsSource="{Binding ProcessedFiles}" Background="Transparent" BorderThickness="0"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+        </Grid>
+
+        <!-- ═══ FOOTER / ACTION BAR ═══ -->
+        <Border Grid.Row="2" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0" Padding="20,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FooterStatusText}" Classes="Status" VerticalAlignment="Center" FontSize="12"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <!-- Cancel button is visible only when sorting -->
+                    <Button Content="■ CANCEL" Classes="Danger" IsVisible="{Binding IsSorting}" Command="{Binding CancelSortCommand}"/>
+                    <!-- Start button is hidden while sorting -->
+                    <Button Content="▶ START SORT" Classes="Primary" MinWidth="140" 
+                            IsVisible="{Binding !IsSorting}" Command="{Binding StartSortCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>
