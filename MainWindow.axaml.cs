@@ -5,16 +5,15 @@ namespace Sorter;
 
 public partial class MainWindow : Window
 {
-    /// <summary>
-    /// The constructor initializes the Avalonia components and 
-    /// sets up the DataContext to link the View (XAML) with the ViewModel (Logic).
-    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
 
-        // This is the most important line for MVVM. 
-        // It tells the XAML: "Whenever you see a {Binding}, look inside MainViewModel."
-        DataContext = new MainViewModel();
+        var vm = new MainViewModel();
+        DataContext = vm;
+
+        // Give the ViewModel access to the folder picker dialog.
+        // We do this here (code-behind) because StorageProvider is a View concern.
+        Loaded += (_, _) => vm.StorageProvider = StorageProvider;
     }
 }

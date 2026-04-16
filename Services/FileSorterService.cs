@@ -38,27 +38,25 @@ public class FileSorterService
 
         var results = new List<FileProcessResult>();
 
-        if (!System.IO.Directory.Exists(sortingFolder))
+        if (!Directory.Exists(sortingFolder))
         {
             Log($"[ERROR] Sorting folder not found: {sortingFolder}");
             return results;
         }
 
-        if (!System.IO.Directory.Exists(sortedFolder))
+        if (!Directory.Exists(sortedFolder))
         {
-            System.IO.Directory.CreateDirectory(sortedFolder);
+            Directory.CreateDirectory(sortedFolder);
             Log($"[CREATED] Output folder: {sortedFolder}");
         }
 
-        // Gather all supported image files recursively
-        var allFiles = System.IO.Directory
+        var allFiles = Directory
             .GetFiles(sortingFolder, "*.*", SearchOption.AllDirectories)
             .Where(f => DateExtractorService.IsSupportedImage(f))
             .ToList();
 
         Log($"[SCAN] Found {allFiles.Count} image files in: {sortingFolder}");
 
-        // Apply "ignore non-dated" filter
         if (settings.IgnoreNonDatedFiles)
         {
             var before = allFiles.Count;
@@ -76,8 +74,9 @@ public class FileSorterService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var filePath = allFiles[i];
-            var result = await ProcessSingleFileAsync(filePath, sortedFolder, settings, i + 1, totalFiles, cancellationToken);
+            var result = await ProcessSingleFileAsync(
+                allFiles[i], sortedFolder, settings, i + 1, totalFiles, cancellationToken);
+
             results.Add(result);
             OnFileProcessed?.Invoke(result);
 
@@ -92,7 +91,8 @@ public class FileSorterService
             });
         }
 
-        Log($"[DONE] Completed. {results.Count(r => r.Success)} succeeded, {results.Count(r => !r.Success)} failed.");
+        int succeeded = results.Count(r => r.Success);
+        Log($"[DONE] Completed. {succeeded} succeeded, {results.Count - succeeded} failed.");
         return results;
     }
 
@@ -111,38 +111,29 @@ public class FileSorterService
 
         try
         {
-            // Get oldest date
             var date = DateExtractorService.GetOldestDate(filePath);
-            string dateStr;
-            if (date.HasValue)
-            {
-                dateStr = $"{date.Value.Year}.{date.Value.Month:D2}.{date.Value.Day:D2}";
-            }
-            else
-            {
-                dateStr = "0000.00.00";
-                Log($"  [WARN] No valid date found for: {fileName}");
-            }
+            var dateStr = date.HasValue
+                ? $"{date.Value.Year}.{date.Value.Month:D2}.{date.Value.Day:D2}"
+                : "0000.00.00";
 
-            // Analyze image with LLM
-            Log($"  [AI] Sending to LM Studio...");
+            if (!date.HasValue)
+                Log($"  [WARN] No valid date found for: {fileName}");
+
+            Log("  [AI] Sending to LM Studio...");
             var analysis = await _lmService.AnalyzeImageAsync(filePath, cancellationToken);
 
             _totalInputTokens += analysis.InputTokens;
             _totalOutputTokens += analysis.OutputTokens;
             _lastTokensPerSecond = analysis.TokensPerSecond;
 
-            Log($"  [AI] Category: {analysis.Category} | Desc: {analysis.Description} | Tokens: {analysis.InputTokens}in/{analysis.OutputTokens}out @ {analysis.TokensPerSecond:F1} t/s");
+            Log($"  [AI] Category: {analysis.Category} | Desc: {analysis.Description} | " +
+                $"Tokens: {analysis.InputTokens}in/{analysis.OutputTokens}out @ {analysis.TokensPerSecond:F1} t/s");
 
-            // Build new filename
-            var ext = Path.GetExtension(filePath).ToLower();
-            // Normalize .webm to .webp for still images (webm is typically video but listed in requirements)
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
             string newName;
             if (settings.UsePrefix && !string.IsNullOrWhiteSpace(settings.Prefix))
             {
-                var prefix = settings.Prefix.Length > 8
-                    ? settings.Prefix[..8]
-                    : settings.Prefix;
+                var prefix = settings.Prefix.Length > 8 ? settings.Prefix[..8] : settings.Prefix;
                 newName = $"{prefix}.{dateStr}.{analysis.Description}{ext}";
             }
             else
@@ -150,19 +141,11 @@ public class FileSorterService
                 newName = $"{dateStr}.{analysis.Description}{ext}";
             }
 
-            // Create category subfolder
             var categoryFolder = Path.Combine(sortedFolder, analysis.Category);
-            if (!System.IO.Directory.Exists(categoryFolder))
-            {
-                System.IO.Directory.CreateDirectory(categoryFolder);
-            }
+            Directory.CreateDirectory(categoryFolder);
 
-            // Handle filename collisions
-            var destPath = Path.Combine(categoryFolder, newName);
-		destPath = GetUniqueFilePath(destPath);
-
-// Move the file instead of copying it
-File.Move(filePath, destPath);
+            var destPath = GetUniqueFilePath(Path.Combine(categoryFolder, newName));
+            File.Move(filePath, destPath);
 
             result.Success = true;
             result.NewFileName = Path.GetFileName(destPath);
@@ -197,17 +180,16 @@ File.Move(filePath, destPath);
         var dir = Path.GetDirectoryName(path)!;
         var nameNoExt = Path.GetFileNameWithoutExtension(path);
         var ext = Path.GetExtension(path);
-        int counter = 1;
+        var counter = 1;
 
-        while (File.Exists(path))
+        do
         {
             path = Path.Combine(dir, $"{nameNoExt}_{counter++}{ext}");
         }
+        while (File.Exists(path));
+
         return path;
     }
 
-    private void Log(string message)
-    {
-        OnLogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}");
-    }
+    private void Log(string message) => OnLogMessage?.Invoke(message);
 }

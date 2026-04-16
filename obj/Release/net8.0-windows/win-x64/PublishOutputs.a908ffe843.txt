@@ -1,0 +1,5 @@
+D:\Desktop\ImageSortz\publish\Sorter.pdb
+D:\Desktop\ImageSortz\publish\av_libglesv2.dll
+D:\Desktop\ImageSortz\publish\libHarfBuzzSharp.dll
+D:\Desktop\ImageSortz\publish\libSkiaSharp.dll
+D:\Desktop\ImageSortz\publish\Sorter.exe

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "8iJ6F0Isf+I=",
+  "dgSpecHash": "c3wecE26MGA=",
   "success": true,
-  "projectFilePath": "D:\\Desktop\\ImageSortz\\Sorter\\Sorter.csproj",
+  "projectFilePath": "D:\\Desktop\\Sorter\\Sorter.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\RZM\\.nuget\\packages\\avalonia\\11.2.3\\avalonia.11.2.3.nupkg.sha512",
     "C:\\Users\\RZM\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.22045.20230930\\avalonia.angle.windows.natives.2.1.22045.20230930.nupkg.sha512",

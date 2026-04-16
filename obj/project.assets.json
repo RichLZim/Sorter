@@ -1524,11 +1524,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Desktop\\ImageSortz\\Sorter\\Sorter.csproj",
+      "projectUniqueName": "D:\\Desktop\\Sorter\\Sorter.csproj",
       "projectName": "Sorter",
-      "projectPath": "D:\\Desktop\\ImageSortz\\Sorter\\Sorter.csproj",
+      "projectPath": "D:\\Desktop\\Sorter\\Sorter.csproj",
       "packagesPath": "C:\\Users\\RZM\\.nuget\\packages\\",
-      "outputPath": "D:\\Desktop\\ImageSortz\\Sorter\\obj\\",
+      "outputPath": "D:\\Desktop\\Sorter\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\RZM\\AppData\\Roaming\\NuGet\\NuGet.Config",

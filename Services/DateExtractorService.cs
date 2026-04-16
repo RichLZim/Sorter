@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 
@@ -8,53 +9,52 @@ namespace Sorter.Services;
 
 public static class DateExtractorService
 {
-    private static readonly string[] ImageExtensions =
-        { ".jpg", ".jpeg", ".png", ".gif", ".webm", ".webp" };
+    private static readonly string[] SupportedExtensions =
+        [".jpg", ".jpeg", ".png", ".gif", ".webm", ".webp"];
+
+    // Matches a 4-digit year in the 2001–2099 range
+    private static readonly Regex YearRegex = new(@"20[0-9]{2}", RegexOptions.Compiled);
 
     public static bool IsSupportedImage(string filePath)
     {
-        var ext = Path.GetExtension(filePath).ToLower();
-        return ImageExtensions.Contains(ext);
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return SupportedExtensions.Contains(ext);
     }
 
     /// <summary>
-    /// Returns the oldest date among EXIF date, file creation, file modified.
-    /// Returns null if no valid date found in 2001-2099 range.
+    /// Returns the oldest date among EXIF date, file creation and file modified.
+    /// Returns null if no valid date is found in the 1900–2099 range.
     /// </summary>
     public static DateTime? GetOldestDate(string filePath)
     {
-        DateTime? exifDate = TryGetExifDate(filePath);
-        DateTime? createdDate = TryGetFileDate(filePath, useCreated: true);
-        DateTime? modifiedDate = TryGetFileDate(filePath, useCreated: false);
-
-            var candidates = new[] { exifDate, createdDate, modifiedDate }
-            .Where(d => d.HasValue && d.Value.Year >= 1900 && d.Value.Year <= 2099)
-            .Select(d => d!.Value)
-            .ToList();
+        var candidates = new[]
+        {
+            TryGetExifDate(filePath),
+            TryGetFileDate(filePath, useCreated: true),
+            TryGetFileDate(filePath, useCreated: false)
+        }
+        .Where(d => d.HasValue && d!.Value.Year >= 1900 && d.Value.Year <= 2099)
+        .Select(d => d!.Value)
+        .ToList();
 
         return candidates.Count > 0 ? candidates.Min() : null;
     }
 
     /// <summary>
-    /// Checks if filename contains a year in 2001-2099 range.
+    /// Returns true if the filename contains a year in the 2001–2099 range.
     /// </summary>
     public static bool FileNameContainsYear(string filePath)
     {
-        var fileName = Path.GetFileNameWithoutExtension(filePath);
-        for (int year = 2001; year <= 2099; year++)
-        {
-            if (fileName.Contains(year.ToString()))
-                return true;
-        }
-        return false;
+        var name = Path.GetFileNameWithoutExtension(filePath);
+        return YearRegex.IsMatch(name);
     }
 
     private static DateTime? TryGetExifDate(string filePath)
     {
         try
         {
-            var ext = Path.GetExtension(filePath).ToLower();
-            // EXIF only available for JPEG/TIFF-based formats
+            // EXIF is only reliable for JPEG / PNG
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
             if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
                 return null;
 
@@ -62,16 +62,13 @@ public static class DateExtractorService
 
             foreach (var dir in directories.OfType<ExifSubIfdDirectory>())
             {
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt))
-                    return dt;
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2))
-                    return dt2;
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt)) return dt;
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2)) return dt2;
             }
 
             foreach (var dir in directories.OfType<ExifIfd0Directory>())
             {
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt))
-                    return dt;
+                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt)) return dt;
             }
         }
         catch { }

@@ -1,17 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Sorter.Models;
 using Sorter.Services;
-using Sorter.Utilities;
-using System.Collections.Generic;
+
 namespace Sorter.ViewModels;
 
 public class MainViewModel : BindableBase
@@ -20,101 +20,122 @@ public class MainViewModel : BindableBase
     private readonly FileSorterService _sorterService;
     private CancellationTokenSource? _cts;
 
-    // --- Properties ---
-// --- 1. Folder & Path Settings ---
-private string _sortingFolder = "";
-public string SortingFolder { get => _sortingFolder; set => RaiseAndSetIfChanged(ref _sortingFolder, value); }
-
-private string _sortedFolder = "";
-public string SortedFolder { get => _sortedFolder; set => RaiseAndSetIfChanged(ref _sortedFolder, value); }
-
-// --- 2. AI / LM Studio Settings ---
-private string _lmStudioUrl = "http://127.0.0.1:1234";
-public string LmStudioUrl { get => _lmStudioUrl; set => RaiseAndSetIfChanged(ref _lmStudioUrl, value); }
-
-private string _modelName = "gemma-4-26b";
-public string ModelName { get => _modelName; set => RaiseAndSetIfChanged(ref _modelName, value); }
-
-// --- 3. Sorting Logic Options ---
-private bool _usePrefix = false;
-public bool UsePrefix { get => _usePrefix; set => RaiseAndSetIfChanged(ref _usePrefix, value); }
-
-private string _prefix = "IMG";
-public string Prefix { get => _prefix; set => RaiseAndSetIfChanged(ref _prefix, value); }
-
-private bool _ignoreNonDatedFiles = false;
-public bool IgnoreNonDatedFiles { get => _ignoreNonDatedFiles; set => RaiseAndSetIfChanged(ref _ignoreNonDatedFiles, value); }
-
-private bool _showTokenCost = true;
-public bool ShowTokenCost { get => _showTokenCost; set => RaiseAndSetIfChanged(ref _showTokenCost, value); }
-public RelayCommand StartSortCommand { get; }
-public RelayCommand CancelSortCommand { get; }
-// --- 4. Execution & Progress State ---
-private bool _isSorting;
-public bool IsSorting 
-{ 
-    get => _isSorting; 
-    set 
+    // --- 1. Folder & Path Settings ---
+    private string _sortingFolder = "";
+    public string SortingFolder
     {
-        // 1. Store the old value to check if a change actually occurred
-        bool oldValue = _isSorting;
+        get => _sortingFolder;
+        set { RaiseAndSetIfChanged(ref _sortingFolder, value); SaveSettings(); }
+    }
 
-        // 2. Call the method (which returns void)
-        RaiseAndSetIfChanged(ref _isSorting, value);
+    private string _sortedFolder = "";
+    public string SortedFolder
+    {
+        get => _sortedFolder;
+        set { RaiseAndSetIfChanged(ref _sortedFolder, value); SaveSettings(); }
+    }
 
-        // 3. If the new value is different from the old value, trigger the commands
-        if (oldValue != value)
+    // --- 2. AI / LM Studio Settings ---
+    private string _lmStudioUrl = "http://127.0.0.1:1234";
+    public string LmStudioUrl
+    {
+        get => _lmStudioUrl;
+        set { RaiseAndSetIfChanged(ref _lmStudioUrl, value); SaveSettings(); }
+    }
+
+    private string _modelName = "gemma-4-26b";
+    public string ModelName
+    {
+        get => _modelName;
+        set { RaiseAndSetIfChanged(ref _modelName, value); SaveSettings(); }
+    }
+
+    // --- 3. Sorting Logic Options ---
+    private bool _usePrefix = false;
+    public bool UsePrefix
+    {
+        get => _usePrefix;
+        set { RaiseAndSetIfChanged(ref _usePrefix, value); SaveSettings(); }
+    }
+
+    private string _prefix = "IMG";
+    public string Prefix
+    {
+        get => _prefix;
+        set { RaiseAndSetIfChanged(ref _prefix, value); SaveSettings(); }
+    }
+
+    private bool _ignoreNonDatedFiles = false;
+    public bool IgnoreNonDatedFiles
+    {
+        get => _ignoreNonDatedFiles;
+        set { RaiseAndSetIfChanged(ref _ignoreNonDatedFiles, value); SaveSettings(); }
+    }
+
+    private bool _showTokenCost = true;
+    public bool ShowTokenCost
+    {
+        get => _showTokenCost;
+        set { RaiseAndSetIfChanged(ref _showTokenCost, value); SaveSettings(); }
+    }
+
+    // --- 4. Execution & Progress State ---
+    private bool _isSorting;
+    public bool IsSorting
+    {
+        get => _isSorting;
+        set
         {
-            StartSortCommand.RaiseCanExecuteChanged();
-            CancelSortCommand.RaiseCanExecuteChanged();
+            if (RaiseAndSetIfChanged(ref _isSorting, value))
+            {
+                StartSortCommand.RaiseCanExecuteChanged();
+                CancelSortCommand.RaiseCanExecuteChanged();
+            }
         }
-    } 
-}
+    }
 
-private double _progressValue;
-public double ProgressValue { get => _progressValue; set => RaiseAndSetIfChanged(ref _progressValue, value); }
+    private double _progressValue;
+    public double ProgressValue { get => _progressValue; set => RaiseAndSetIfChanged(ref _progressValue, value); }
 
-private string _progressText = "0/0";
-public string ProgressText { get => _progressText; set => RaiseAndSetIfChanged(ref _progressText, value); }
+    private string _progressText = "0/0";
+    public string ProgressText { get => _progressText; set => RaiseAndSetIfChanged(ref _progressText, value); }
 
-// --- 5. Status & Feedback (UI Text) ---
-private string _statusText = "Ready";
-public string StatusText { get => _statusText; set => RaiseAndSetIfChanged(ref _statusText, value); }
+    // --- 5. Status & Feedback (UI Text) ---
+    private string _statusText = "Ready";
+    public string StatusText { get => _statusText; set => RaiseAndSetIfChanged(ref _statusText, value); }
 
-private string _connectionStatusText = "LM STUDIO: DISCONNECTED";
-public string ConnectionStatusText { get => _connectionStatusText; set => RaiseAndSetIfChanged(ref _connectionStatusText, value); }
+    private string _connectionStatusText = "LM STUDIO: DISCONNECTED";
+    public string ConnectionStatusText { get => _connectionStatusText; set => RaiseAndSetIfChanged(ref _connectionStatusText, value); }
 
-private string _footerStatusText = "Configure folders above and press START SORT";
-public string FooterStatusText { get => _footerStatusText; set => RaiseAndSetIfChanged(ref _footerStatusText, value); }
+    private string _footerStatusText = "Configure folders above and press START SORT";
+    public string FooterStatusText { get => _footerStatusText; set => RaiseAndSetIfChanged(ref _footerStatusText, value); }
 
-private string _resultCountText = "0 files";
-public string ResultCountText { get => _resultCountText; set => RaiseAndSetIfChanged(ref _resultCountText, value); }
+    private string _resultCountText = "0 files";
+    public string ResultCountText { get => _resultCountText; set => RaiseAndSetIfChanged(ref _resultCountText, value); }
 
-// --- 6. Token Statistics ---
-private int _inputTokens;
-public int InputTokens { get => _inputTokens; set => RaiseAndSetIfChanged(ref _inputTokens, value); }
+    // --- 6. Token Statistics ---
+    private int _inputTokens;
+    public int InputTokens { get => _inputTokens; set => RaiseAndSetIfChanged(ref _inputTokens, value); }
 
-private int _outputTokens;
-public int OutputTokens { get => _outputTokens; set => RaiseAndSetIfChanged(ref _outputTokens, value); }
+    private int _outputTokens;
+    public int OutputTokens { get => _outputTokens; set => RaiseAndSetIfChanged(ref _outputTokens, value); }
 
-private string _tokensPerSecond = "—";
-public string TokensPerSecond { get => _tokensPerSecond; set => RaiseAndSetIfChanged(ref _tokensPerSecond, value); }
+    private string _tokensPerSecond = "—";
+    public string TokensPerSecond { get => _tokensPerSecond; set => RaiseAndSetIfChanged(ref _tokensPerSecond, value); }
 
-// --- 7. Image Preview State ---
-private Bitmap? _currentImageSource;
-public Bitmap? CurrentImageSource { get => _currentImageSource; set => RaiseAndSetIfChanged(ref _currentImageSource, value); }
+    // --- 7. Image Preview State ---
+    private Bitmap? _currentImageSource;
+    public Bitmap? CurrentImageSource { get => _currentImageSource; set => RaiseAndSetIfChanged(ref _currentImageSource, value); }
 
-private bool _hasImage;
-public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasImage, value); }
-
+    private bool _hasImage;
+    public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasImage, value); }
 
     public ObservableCollection<string> LogEntries { get; } = new();
     public ObservableCollection<string> ProcessedFiles { get; } = new();
-	
-	
-    // --- Commands ---
 
-  
+    // --- Commands ---
+    public RelayCommand StartSortCommand { get; }
+    public RelayCommand CancelSortCommand { get; }
     public ICommand TestConnectionCommand { get; }
     public ICommand ClearLogCommand { get; }
     public ICommand ResetSettingsCommand { get; }
@@ -123,36 +144,40 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
     public ICommand BrowseSourceCommand { get; }
     public ICommand BrowseOutputCommand { get; }
 
+    // Injected by the View so the ViewModel can open folder pickers
+    public IStorageProvider? StorageProvider { get; set; }
+
     public MainViewModel()
     {
         // 1. Load initial settings
         var settings = SettingsService.Load();
-        SortingFolder = settings.SortingFolder;
-        SortedFolder = settings.SortedFolder;
-        LmStudioUrl = settings.LmStudioUrl;
-        ModelName = settings.ModelName;
-        UsePrefix = settings.UsePrefix;
-        Prefix = settings.Prefix;
-        IgnoreNonDatedFiles = settings.IgnoreNonDatedFiles;
-        ShowTokenCost = settings.ShowTokenCost;
+        // Assign backing fields directly to skip SaveSettings() on initial load
+        _sortingFolder = settings.SortingFolder;
+        _sortedFolder = settings.SortedFolder;
+        _lmStudioUrl = settings.LmStudioUrl;
+        _modelName = settings.ModelName;
+        _usePrefix = settings.UsePrefix;
+        _prefix = settings.Prefix;
+        _ignoreNonDatedFiles = settings.IgnoreNonDatedFiles;
+        _showTokenCost = settings.ShowTokenCost;
 
-        // 2. Initialize Services
+        // 2. Initialize services
         _lmService = new LmStudioService(LmStudioUrl, ModelName);
         _sorterService = new FileSorterService(_lmService);
 
-        // 3. Setup Commands
+        // 3. Setup commands
         StartSortCommand = new RelayCommand(async () => await ExecuteSort(), () => !IsSorting);
-        CancelSortCommand = new RelayCommand(() => ExecuteCancel(), () => IsSorting);
+        CancelSortCommand = new RelayCommand(ExecuteCancel, () => IsSorting);
         TestConnectionCommand = new RelayCommand(async () => await ExecuteTestConnection());
         ClearLogCommand = new RelayCommand(() => LogEntries.Clear());
         ResetSettingsCommand = new RelayCommand(ExecuteResetSettings);
         InstallLmStudioCommand = new RelayCommand(ExecuteInstallCli);
         LoadLmStudioCommand = new RelayCommand(ExecuteLoadServer);
-        BrowseSourceCommand = new RelayCommand(async () => await BrowseFolder(true));
-        BrowseOutputCommand = new RelayCommand(async () => await BrowseFolder(false));
+        BrowseSourceCommand = new RelayCommand(async () => await BrowseFolder(isSource: true));
+        BrowseOutputCommand = new RelayCommand(async () => await BrowseFolder(isSource: false));
 
-        // 4. Wire up Service Events
-        _sorterService.OnLogMessage += (msg) => AppendLog(msg);
+        // 4. Wire up service events
+        _sorterService.OnLogMessage += AppendLog;
         _sorterService.OnFileProcessed += OnFileProcessed;
         _sorterService.OnTokenStatsUpdated += OnTokenStatsUpdated;
     }
@@ -175,9 +200,8 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
             return;
         }
 
-        // Update settings in service before starting
         _lmService.UpdateSettings(LmStudioUrl, ModelName);
-        
+
         IsSorting = true;
         ProcessedFiles.Clear();
         FooterStatusText = "Sorting in progress...";
@@ -185,8 +209,6 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
 
         try
         {
-            // We need to create a temporary settings object for the service call 
-            // that matches what the UI currently shows
             var currentSettings = new SorterSettings
             {
                 SortingFolder = SortingFolder,
@@ -205,7 +227,9 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
                 currentSettings,
                 _cts.Token);
 
-            FooterStatusText = $"Done! {results.Count(r => r.Success)} sorted, {results.Count(r => !r.Success)} failed.";
+            int succeeded = 0, failed = 0;
+            foreach (var r in results) { if (r.Success) succeeded++; else failed++; }
+            FooterStatusText = $"Done! {succeeded} sorted, {failed} failed.";
         }
         catch (OperationCanceledException)
         {
@@ -235,11 +259,11 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
     {
         ConnectionStatusText = "LM STUDIO: TESTING...";
         _lmService.UpdateSettings(LmStudioUrl, ModelName);
-        
+
         var result = await _lmService.TestConnectionAsync();
         ConnectionStatusText = result.IsSuccess ? "LM STUDIO: CONNECTED" : "LM STUDIO: UNREACHABLE";
-        AppendLog(result.IsSuccess 
-            ? $"[OK] LM Studio connected at {LmStudioUrl}" 
+        AppendLog(result.IsSuccess
+            ? $"[OK] LM Studio connected at {LmStudioUrl}"
             : $"[ERROR] Connection failed: {result.Message}");
     }
 
@@ -249,7 +273,6 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
         {
             SettingReset.Execute();
             var fresh = SettingsService.Load();
-            // Update properties to trigger UI refresh
             SortingFolder = fresh.SortingFolder;
             SortedFolder = fresh.SortedFolder;
             LmStudioUrl = fresh.LmStudioUrl;
@@ -268,8 +291,6 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
 
     private void ExecuteInstallCli()
     {
-        // Note: In a real MVVM app, this logic should be in an LmStudioCliService
-        // For now, we keep it here to maintain your existing functionality
         AppendLog("[INFO] Starting LM Studio CLI installation...");
         try
         {
@@ -280,8 +301,7 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
                 UseShellExecute = true,
                 Arguments = "-Command \"npx lmstudio install-cli; lms get gemma-4-26b\""
             };
-            var p = System.Diagnostics.Process.Start(psi);
-            p?.WaitForExit();
+            System.Diagnostics.Process.Start(psi)?.WaitForExit();
             AppendLog("[SUCCESS] Installation process finished.");
         }
         catch (Exception ex) { AppendLog($"[ERROR] Install failed: {ex.Message}"); }
@@ -301,8 +321,7 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
                     UseShellExecute = true,
                     Arguments = "-Command \"lms load gemma-4-26b; Start-Sleep -s 1; lms server start\""
                 };
-                var p = System.Diagnostics.Process.Start(psi);
-                p?.WaitForExit();
+                System.Diagnostics.Process.Start(psi)?.WaitForExit();
                 AppendLog("[SUCCESS] LM Studio Server process finished.");
             }
             catch (Exception ex) { AppendLog($"[ERROR] Server launch failed: {ex.Message}"); }
@@ -311,12 +330,27 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
 
     private async Task BrowseFolder(bool isSource)
     {
-        // This requires access to the Window's StorageProvider. 
-        // In a pure MVVM, you'd use a Service, but for this refactor, we'll assume 
-        // the command is called from the View or handled via a service.
-        // Since we can't easily get StorageProvider from ViewModel without passing it,
-        // I will leave a placeholder. In your actual implementation, you might need 
-        // to call this from the code-behind or pass the Window reference.
+        if (StorageProvider is null)
+        {
+            AppendLog("[ERROR] StorageProvider not set — cannot open folder picker.");
+            return;
+        }
+
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = isSource ? "Select Source Folder" : "Select Output Folder",
+            AllowMultiple = false
+        });
+
+        if (folders.Count == 0) return;
+
+        var path = folders[0].TryGetLocalPath();
+        if (path is null) return;
+
+        if (isSource)
+            SortingFolder = path;
+        else
+            SortedFolder = path;
     }
 
     // --- Event Handlers (Called by Services) ---
@@ -324,38 +358,41 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
     private void AppendLog(string message)
     {
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            LogEntries.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
-            // Auto-scroll logic is usually handled in the View via a behavior or code-behind
-        });
+            LogEntries.Add($"[{DateTime.Now:HH:mm:ss}] {message}"));
     }
 
     private void OnFileProcessed(FileProcessResult result)
     {
-        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+        // Load the bitmap BEFORE switching to the UI thread so the file read
+        // doesn't block the UI. By this point the file has already been moved,
+        // so we read from DestinationPath (which is set by FileSorterService).
+        Bitmap? bitmap = null;
+        var previewPath = result.Success ? result.DestinationPath : result.OriginalPath;
+        try
         {
-            // Update Results List
-            var entry = result.Success 
-                ? $"✓  [{result.Category}]  {result.NewFileName}" 
+            if (File.Exists(previewPath))
+            {
+                // Read all bytes first so the file handle is released immediately
+                var bytes = File.ReadAllBytes(previewPath);
+                using var ms = new MemoryStream(bytes);
+                bitmap = new Bitmap(ms);
+            }
+        }
+        catch { /* bitmap stays null */ }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var entry = result.Success
+                ? $"✓  [{result.Category}]  {result.NewFileName}"
                 : $"✗  {Path.GetFileName(result.OriginalPath)}  — {result.Error}";
             ProcessedFiles.Add(entry);
             ResultCountText = $"{ProcessedFiles.Count} files";
 
-            // Update Image Preview
-            try
-            {
-                if (File.Exists(result.OriginalPath))
-                {
-                    using var stream = File.OpenRead(result.OriginalPath);
-                    CurrentImageSource = new Bitmap(stream);
-                    HasImage = true;
-                }
-                else
-                {
-                    HasImage = false;
-                }
-            }
-            catch { HasImage = false; }
+            // Dispose the previous bitmap to free memory
+            var old = CurrentImageSource;
+            CurrentImageSource = bitmap;
+            HasImage = bitmap is not null;
+            old?.Dispose();
         });
     }
 
@@ -367,9 +404,24 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
             OutputTokens = stats.OutputTokens;
             TokensPerSecond = stats.TokensPerSecond > 0 ? $"{stats.TokensPerSecond:F1} t/s" : "—";
             ProgressText = $"{stats.TotalProcessed}/{stats.TotalFiles}";
-            
+
             if (stats.TotalFiles > 0)
                 ProgressValue = (double)stats.TotalProcessed / stats.TotalFiles * 100;
+        });
+    }
+
+    private void SaveSettings()
+    {
+        SettingsService.Save(new SorterSettings
+        {
+            SortingFolder = _sortingFolder,
+            SortedFolder = _sortedFolder,
+            LmStudioUrl = _lmStudioUrl,
+            ModelName = _modelName,
+            UsePrefix = _usePrefix,
+            Prefix = _prefix,
+            IgnoreNonDatedFiles = _ignoreNonDatedFiles,
+            ShowTokenCost = _showTokenCost
         });
     }
 }
@@ -379,35 +431,56 @@ public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasIma
 public class BindableBase : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
-    protected void RaiseAndSetIfChanged<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+
+    /// <summary>Returns true if the value actually changed.</summary>
+    protected bool RaiseAndSetIfChanged<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 }
 
 public class RelayCommand : ICommand
 {
-    private readonly Action _execute;
+    private readonly Func<Task>? _asyncExecute;
+    private readonly Action? _syncExecute;
     private readonly Func<bool>? _canExecute;
+    private bool _isExecuting;
 
     public RelayCommand(Action execute, Func<bool>? canExecute = null)
     {
-        _execute = execute;
+        _syncExecute = execute;
         _canExecute = canExecute;
     }
 
-    public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
-    public void Execute(object? parameter) => _execute();
+    public RelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    {
+        _asyncExecute = execute;
+        _canExecute = canExecute;
+    }
 
-    // In Avalonia, we define the event. 
-    // To fix the warning, we must actually use it or provide a way to trigger it.
+    public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
+
+    public async void Execute(object? parameter)
+    {
+        if (!CanExecute(parameter)) return;
+        if (_asyncExecute is not null)
+        {
+            _isExecuting = true;
+            RaiseCanExecuteChanged();
+            try { await _asyncExecute(); }
+            finally { _isExecuting = false; RaiseCanExecuteChanged(); }
+        }
+        else
+        {
+            _syncExecute?.Invoke();
+        }
+    }
+
     public event EventHandler? CanExecuteChanged;
 
-    // Add this helper method so your ViewModel can tell the command to refresh
-    public void RaiseCanExecuteChanged()
-    {
+    public void RaiseCanExecuteChanged() =>
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-    }
 }
