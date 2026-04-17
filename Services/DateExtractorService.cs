@@ -9,6 +9,9 @@ namespace Sorter.Services;
 
 public static class DateExtractorService
 {
+    private const int MinYear = 1900;
+    private const int MaxYear = 2099;
+
     private static readonly string[] SupportedExtensions =
         [".jpg", ".jpeg", ".png", ".gif", ".webm", ".webp"];
 
@@ -23,21 +26,18 @@ public static class DateExtractorService
 
     /// <summary>
     /// Returns the oldest date among EXIF date, file creation and file modified.
-    /// Returns null if no valid date is found in the 1900–2099 range.
+    /// Returns null if no valid date is found in the MinYear–MaxYear range.
     /// </summary>
     public static DateTime? GetOldestDate(string filePath)
     {
-        var candidates = new[]
+        return new[]
         {
             TryGetExifDate(filePath),
             TryGetFileDate(filePath, useCreated: true),
             TryGetFileDate(filePath, useCreated: false)
         }
-        .Where(d => d.HasValue && d!.Value.Year >= 1900 && d.Value.Year <= 2099)
-        .Select(d => d!.Value)
-        .ToList();
-
-        return candidates.Count > 0 ? candidates.Min() : null;
+        .Where(d => d is { } dt && dt.Year >= MinYear && dt.Year <= MaxYear)
+        .Min();
     }
 
     /// <summary>
@@ -53,23 +53,22 @@ public static class DateExtractorService
     {
         try
         {
-            // EXIF is only reliable for JPEG / PNG
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
             if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
                 return null;
 
             var directories = ImageMetadataReader.ReadMetadata(filePath);
 
-            foreach (var dir in directories.OfType<ExifSubIfdDirectory>())
+            // Check SubIFD first (more specific), then IFD0 (general)
+            var subIfd = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
+            if (subIfd != null)
             {
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt)) return dt;
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2)) return dt2;
+                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt)) return dt;
+                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2)) return dt2;
             }
 
-            foreach (var dir in directories.OfType<ExifIfd0Directory>())
-            {
-                if (dir.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt)) return dt;
-            }
+            var ifd0 = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
+            if (ifd0 != null && ifd0.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt3)) return dt3;
         }
         catch { }
         return null;

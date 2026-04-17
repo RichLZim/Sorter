@@ -13,9 +13,8 @@ public class LmStudioService : IDisposable
 {
     private readonly HttpClient _client;
     private string _baseUrl;
-   
+    private string _modelName;
 
-  private string _modelName = "";
     public LmStudioService(string baseUrl, string modelName)
     {
         _baseUrl = baseUrl.Trim().TrimEnd('/');
@@ -31,39 +30,39 @@ public class LmStudioService : IDisposable
     }
 
     public void UpdateSettings(string baseUrl, string modelName)
-{
-    _baseUrl = baseUrl.Trim().TrimEnd('/');
-    
-    // Strip out trailing /v1 if the user accidentally pasted it
-    if (_baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
     {
-        _baseUrl = _baseUrl.Substring(0, _baseUrl.Length - 3).TrimEnd('/');
-    }
-    
-    _modelName = modelName;
-}
+        _baseUrl = baseUrl.Trim().TrimEnd('/');
 
-   public async Task<(bool IsSuccess, string Message)> TestConnectionAsync()
-{
-    try
+        // Strip out trailing /v1 if the user accidentally pasted it
+        if (_baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            _baseUrl = _baseUrl.Substring(0, _baseUrl.Length - 3).TrimEnd('/');
+        }
+
+        _modelName = modelName;
+    }
+
+    public async Task<(bool IsSuccess, string Message)> TestConnectionAsync()
     {
-        var url = $"{_baseUrl}/v1/models";
-        var response = await _client.GetAsync(url);
+        try
+        {
+            var url = $"{_baseUrl}/v1/models";
+            var response = await _client.GetAsync(url);
 
-        if (!response.IsSuccessStatusCode)
-            return (false, $"HTTP Error: {response.StatusCode}");
+            if (!response.IsSuccessStatusCode)
+                return (false, $"HTTP Error: {response.StatusCode}");
 
-        var content = await response.Content.ReadAsStringAsync();
-        if (string.IsNullOrWhiteSpace(content) || !content.Contains("data"))
-            return (false, "Connected, but response was invalid or empty.");
+            var content = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(content) || !content.Contains("data"))
+                return (false, "Connected, but response was invalid or empty.");
 
-        return (true, "OK");
+            return (true, "OK");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Exception: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        return (false, $"Exception: {ex.Message}");
-    }
-}
 
     /// <summary>
     /// Analyzes an image and returns:
@@ -145,7 +144,7 @@ Rules:
         string category = "unsorted";
         string description = "unknown.image.file";
 
-         try
+        try
         {
             // Use Regex to extract the JSON object even if the model includes conversational text
             var jsonMatch = System.Text.RegularExpressions.Regex.Match(messageContent, @"\{.*\}", System.Text.RegularExpressions.RegexOptions.Singleline);

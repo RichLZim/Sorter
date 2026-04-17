@@ -1,7 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Sorter.ViewModels"
-        x:Class="Sorter.MainWindow"
+xmlns:vm="using:Sorter.ViewModels"
+xmlns:conv="using:Avalonia.Data.Converters"
+x:Class="Sorter.MainWindow"
         x:DataType="vm:MainViewModel" 
         Title="Sorterz — AI Image Organizer"
         Width="1200" Height="720"
@@ -81,7 +82,7 @@
                                     
                                     <TextBlock Text="Format: YEAR.MM.DD.three.word.desc.ext"
                                                Classes="Status" FontSize="10" TextWrapping="Wrap"
-                                               IsVisible="{Binding !UsePrefix}"/>
+                                                IsVisible="{Binding UsePrefix, Converter={x:Static conv:BoolConverters.Not}}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -113,10 +114,10 @@
                                                    HorizontalAlignment="Center" 
                                                    Foreground="#444444" 
                                                    FontSize="11"
-                                                   IsVisible="{Binding !HasImage}"/>
+                                                    IsVisible="{Binding Preview.HasImage, Converter={x:Static conv:BoolConverters.Not}}"/>
 
                                         <!-- The actual Image control bound to the current file path -->
-                                        <Image Source="{Binding CurrentImageSource}" Stretch="Uniform" />
+                                        <Image Source="{Binding Preview.CurrentImageSource}" Stretch="Uniform" />
                                     </Panel>
                                 </Border>
                             </StackPanel>
@@ -293,7 +294,7 @@
                     <Button Content="■ CANCEL" Classes="Danger" IsVisible="{Binding IsSorting}" Command="{Binding CancelSortCommand}"/>
                     <!-- Start button is hidden while sorting -->
                     <Button Content="▶ START SORT" Classes="Primary" MinWidth="140" 
-                            IsVisible="{Binding !IsSorting}" Command="{Binding StartSortCommand}"/>
+                                     IsVisible="{Binding IsSorting, Converter={x:Static conv:BoolConverters.Not}}" Command="{Binding StartSortCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>

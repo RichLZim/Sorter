@@ -130,16 +130,11 @@ public class FileSorterService
                 $"Tokens: {analysis.InputTokens}in/{analysis.OutputTokens}out @ {analysis.TokensPerSecond:F1} t/s");
 
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
-            string newName;
-            if (settings.UsePrefix && !string.IsNullOrWhiteSpace(settings.Prefix))
-            {
-                var prefix = settings.Prefix.Length > 8 ? settings.Prefix[..8] : settings.Prefix;
-                newName = $"{prefix}.{dateStr}.{analysis.Description}{ext}";
-            }
-            else
-            {
-                newName = $"{dateStr}.{analysis.Description}{ext}";
-            }
+            string prefixPart = (settings.UsePrefix && !string.IsNullOrWhiteSpace(settings.Prefix)) 
+                ? $"{settings.Prefix[..Math.Min(settings.Prefix.Length, 8)]}." 
+                : string.Empty;
+
+            string newName = $"{prefixPart}{dateStr}.{analysis.Description}{ext}";
 
             var categoryFolder = Path.Combine(sortedFolder, analysis.Category);
             Directory.CreateDirectory(categoryFolder);

@@ -1,136 +1,114 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Sorter.Models;
 using Sorter.Services;
 
 namespace Sorter.ViewModels;
 
-public class MainViewModel : BindableBase
+/// <summary>
+/// Orchestrates the application. Owns no duplicated settings state —
+/// all persisted values live in <see cref="Settings"/>.
+/// Runtime progress lives in <see cref="Progress"/>.
+/// Connection state lives in <see cref="Connection"/>.
+/// </summary>
+public class MainViewModel : ViewModelBase
 {
-    private readonly LmStudioService _lmService;
-    private readonly FileSorterService _sorterService;
-    private CancellationTokenSource? _cts;
-    private bool _useGpu = false;
-    // --- 1. Folder & Path Settings ---
-    private string _sortingFolder = "";
+    private readonly LmStudioService    _lmService;
+    private readonly LmStudioCliService _cliService;
+    private readonly FileSorterService  _sorterService;
+    private CancellationTokenSource?    _cts;
+
+    // ── Sub-ViewModels (each owns a clearly defined slice of state) ─────────
+    public SettingsViewModel        Settings   { get; }
+    public ConnectionViewModel      Connection { get; }
+    public SortingProgressViewModel Progress   { get; }
+    public ImagePreviewViewModel    Preview    { get; }
+
+    // ── Pass-through properties so XAML bindings keep their existing paths ──
+    // These delegate to Settings, which is the single source of truth.
+
     public string SortingFolder
     {
-        get => _sortingFolder;
-        set { RaiseAndSetIfChanged(ref _sortingFolder, value); SaveSettings(); }
+        get => Settings.SortingFolder;
+        set { if (Settings.SortingFolder != value) { Settings.SortingFolder = value; OnSettingChanged(); } }
     }
 
-    private string _sortedFolder = "";
     public string SortedFolder
     {
-        get => _sortedFolder;
-        set { RaiseAndSetIfChanged(ref _sortedFolder, value); SaveSettings(); }
+        get => Settings.SortedFolder;
+        set { if (Settings.SortedFolder != value) { Settings.SortedFolder = value; OnSettingChanged(); } }
     }
 
-    // --- 2. AI / LM Studio Settings ---
-    private string _lmStudioUrl = "http://127.0.0.1:1234";
     public string LmStudioUrl
     {
-        get => _lmStudioUrl;
-        set { RaiseAndSetIfChanged(ref _lmStudioUrl, value); SaveSettings(); }
-    }
-
-    private string _modelName = "gemma-4-26b";
-    public string ModelName
-    {
-        get => _modelName;
-        set { RaiseAndSetIfChanged(ref _modelName, value); SaveSettings(); }
-    }
-
-    private string _selectedModel = "gemma-4-26b";
-    public string SelectedModel
-    {
-        get => _selectedModel;
-        set 
-        { 
-            if (RaiseAndSetIfChanged(ref _selectedModel, value))
+        get => Settings.LmStudioUrl;
+        set
+        {
+            if (Settings.LmStudioUrl != value)
             {
-                ModelName = value;
-                SaveSettings();
+                Settings.LmStudioUrl = value;
+                Connection.LmStudioUrl = value; // keep connection VM in sync
             }
         }
     }
 
-    private string _connectionState = "Disconnected"; // Disconnected, Connected, Refused
-    public string ConnectionState
+    public string ModelName
     {
-        get => _connectionState;
-        set 
-        { 
-            RaiseAndSetIfChanged(ref _connectionState, value);
-            UpdateConnectionColor();
+        get => Settings.ModelName;
+        set
+        {
+            if (Settings.ModelName != value)
+            {
+                Settings.ModelName = value;
+                Connection.ModelName = value; // keep connection VM in sync
+            }
         }
     }
 
-    private IBrush _connectionColor = Brushes.Gray;
-    public IBrush ConnectionColor
+    public string SelectedModel
     {
-        get => _connectionColor;
-        set => RaiseAndSetIfChanged(ref _connectionColor, value);
+        get => Settings.SelectedModel;
+        set { if (Settings.SelectedModel != value) Settings.SelectedModel = value; }
     }
 
-    private void UpdateConnectionColor()
-    {
-        ConnectionColor = ConnectionState switch
-        {
-            "Connected" => Brushes.Green,
-            "Refused" => Brushes.Red,
-            _ => Brushes.Gray
-        };
-    }
-
-    public ObservableCollection<string> AvailableModels { get; } = new()
-    {
-        "gemma-4-26b",
-        "llama-3-8b",
-        "mistral-7b",
-        "phi-3-mini"
-    };
-
-    // --- 3. Sorting Logic Options ---
-    private bool _usePrefix = false;
     public bool UsePrefix
     {
-        get => _usePrefix;
-        set { RaiseAndSetIfChanged(ref _usePrefix, value); SaveSettings(); }
+        get => Settings.UsePrefix;
+        set { if (Settings.UsePrefix != value) Settings.UsePrefix = value; }
     }
 
-    private string _prefix = "IMG";
     public string Prefix
     {
-        get => _prefix;
-        set { RaiseAndSetIfChanged(ref _prefix, value); SaveSettings(); }
+        get => Settings.Prefix;
+        set { if (Settings.Prefix != value) Settings.Prefix = value; }
     }
 
-    private bool _ignoreNonDatedFiles = false;
     public bool IgnoreNonDatedFiles
     {
-        get => _ignoreNonDatedFiles;
-        set { RaiseAndSetIfChanged(ref _ignoreNonDatedFiles, value); SaveSettings(); }
+        get => Settings.IgnoreNonDatedFiles;
+        set { if (Settings.IgnoreNonDatedFiles != value) Settings.IgnoreNonDatedFiles = value; }
     }
 
-    private bool _showTokenCost = true;
     public bool ShowTokenCost
     {
-        get => _showTokenCost;
-        set { RaiseAndSetIfChanged(ref _showTokenCost, value); SaveSettings(); }
+        get => Settings.ShowTokenCost;
+        set { if (Settings.ShowTokenCost != value) Settings.ShowTokenCost = value; }
     }
 
-    // --- 4. Execution & Progress State ---
+    public bool UseGpu
+    {
+        get => Settings.UseGpu;
+        set { if (Settings.UseGpu != value) Settings.UseGpu = value; }
+    }
+
+    // AvailableModels: single definition lives in SettingsViewModel.
+    public static string[] AvailableModels => SettingsViewModel.AvailableModels;
+
+    // ── Execution state (not persisted, lives here) ──────────────────────────
     private bool _isSorting;
     public bool IsSorting
     {
@@ -145,163 +123,132 @@ public class MainViewModel : BindableBase
         }
     }
 
-    private double _progressValue;
-    public double ProgressValue { get => _progressValue; set => RaiseAndSetIfChanged(ref _progressValue, value); }
+    // Progress/log forwarding — bindings use flat paths, Progress owns the data.
+    public double   ProgressValue   => Progress.ProgressValue;
+    public string   ProgressText    => Progress.ProgressText;
+    public string   StatusText      => Progress.StatusText;
+    public string   FooterStatusText
+    {
+        get => Progress.FooterStatusText;
+        set => Progress.FooterStatusText = value;
+    }
+    public string   ResultCountText => Progress.ResultCountText;
+    public int      InputTokens     => Progress.InputTokens;
+    public int      OutputTokens    => Progress.OutputTokens;
+    public string   TokensPerSecond => Progress.TokensPerSecond;
 
-    private string _progressText = "0/0";
-    public string ProgressText { get => _progressText; set => RaiseAndSetIfChanged(ref _progressText, value); }
+    public System.Collections.ObjectModel.ObservableCollection<string> LogEntries
+        => Progress.LogEntries;
+    public System.Collections.ObjectModel.ObservableCollection<string> ProcessedFiles
+        => Progress.ProcessedFiles;
 
-    
-    
-    
-    // --- 5. Status & Feedback (UI Text) ---
-    private string _statusText = "Ready";
-    public string StatusText { get => _statusText; set => RaiseAndSetIfChanged(ref _statusText, value); }
+    // Connection forwarding
+    public string       ConnectionStatusText => Connection.ConnectionStatusText;
+    public Avalonia.Media.IBrush ConnectionColor => Connection.ConnectionColor;
 
-    private string _connectionStatusText = "LMS SERVER: OFFLINE";
-    public string ConnectionStatusText { get => _connectionStatusText; set => RaiseAndSetIfChanged(ref _connectionStatusText, value); }
+    // ── Commands ─────────────────────────────────────────────────────────────
+    public RelayCommand StartSortCommand       { get; }
+    public RelayCommand CancelSortCommand      { get; }
+    public ICommand     TestConnectionCommand  => Connection.TestConnectionCommand;
+    public ICommand     ClearLogCommand        { get; }
+    public ICommand     ResetSettingsCommand   => Settings.ResetSettingsCommand;
+    public ICommand     InstallLmStudioCommand { get; }
+    public ICommand     LoadLmStudioCommand    { get; }
+    public ICommand     StopServerCommand      { get; }
+    public ICommand     BrowseSourceCommand    { get; }
+    public ICommand     BrowseOutputCommand    { get; }
 
-    private string _footerStatusText = "Configure folders above and press START SORT";
-    public string FooterStatusText { get => _footerStatusText; set => RaiseAndSetIfChanged(ref _footerStatusText, value); }
-
-    private string _resultCountText = "0 files";
-    public string ResultCountText { get => _resultCountText; set => RaiseAndSetIfChanged(ref _resultCountText, value); }
-
-    // --- 6. Token Statistics ---
-    private int _inputTokens;
-    public int InputTokens { get => _inputTokens; set => RaiseAndSetIfChanged(ref _inputTokens, value); }
-
-    private int _outputTokens;
-    public int OutputTokens { get => _outputTokens; set => RaiseAndSetIfChanged(ref _outputTokens, value); }
-
-    private string _tokensPerSecond = "—";
-    public string TokensPerSecond { get => _tokensPerSecond; set => RaiseAndSetIfChanged(ref _tokensPerSecond, value); }
-
-    // --- 7. Image Preview State ---
-    private Bitmap? _currentImageSource;
-    public Bitmap? CurrentImageSource { get => _currentImageSource; set => RaiseAndSetIfChanged(ref _currentImageSource, value); }
-
-    private bool _hasImage;
-    public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasImage, value); }
-
-    public ObservableCollection<string> LogEntries { get; } = new();
-    public ObservableCollection<string> ProcessedFiles { get; } = new();
-public bool UseGpu
-{
-    get => _useGpu;
-    set { RaiseAndSetIfChanged(ref _useGpu, value); SaveSettings(); }
-}
-
-    // --- Commands ---
-    public RelayCommand StartSortCommand { get; }
-    public RelayCommand CancelSortCommand { get; }
-    public ICommand TestConnectionCommand { get; }
-    public ICommand ClearLogCommand { get; }
-    public ICommand ResetSettingsCommand { get; }
-    public ICommand InstallLmStudioCommand { get; }
-    public ICommand LoadLmStudioCommand { get; }
-    public ICommand StopServerCommand { get; }
-    public ICommand BrowseSourceCommand { get; }
-    public ICommand BrowseOutputCommand { get; }
-
-    // Injected by the View so the ViewModel can open folder pickers
     public IStorageProvider? StorageProvider { get; set; }
 
+    // ── Construction ─────────────────────────────────────────────────────────
     public MainViewModel()
     {
-        // 1. Load initial settings
-        var settings = SettingsService.Load();
-        // Assign backing fields directly to skip SaveSettings() on initial load
-        _sortingFolder = settings.SortingFolder;
-        _sortedFolder = settings.SortedFolder;
-        _lmStudioUrl = settings.LmStudioUrl;
-        _modelName = settings.ModelName;
-        _usePrefix = settings.UsePrefix;
-        _prefix = settings.Prefix;
-        _ignoreNonDatedFiles = settings.IgnoreNonDatedFiles;
-        _showTokenCost = settings.ShowTokenCost;
-        _selectedModel = settings.ModelName;
-        _useGpu = settings.UseGpu;
+        // 1. SettingsViewModel loads from disk in its own constructor.
+        Settings = new SettingsViewModel();
 
-        // 2. Initialize services
-        _lmService = new LmStudioService(LmStudioUrl, ModelName);
+        // 2. Initialize services with the already-loaded values.
+        _lmService     = new LmStudioService(Settings.LmStudioUrl, Settings.ModelName);
         _sorterService = new FileSorterService(_lmService);
+        _cliService    = new LmStudioCliService();
 
-        // 3. Setup commands
-        StartSortCommand = new RelayCommand(async () => await ExecuteSort(), () => !IsSorting);
-        CancelSortCommand = new RelayCommand(ExecuteCancel, () => IsSorting);
-        TestConnectionCommand = new RelayCommand(async () => await ExecuteTestConnection());
-        ClearLogCommand = new RelayCommand(() => LogEntries.Clear());
-        ResetSettingsCommand = new RelayCommand(ExecuteResetSettings);
-        InstallLmStudioCommand = new RelayCommand(ExecuteInstallCli);
-        LoadLmStudioCommand = new RelayCommand(ExecuteLoadServer);
-        StopServerCommand = new RelayCommand(ExecuteStopServer);
-        BrowseSourceCommand = new RelayCommand(async () => await BrowseFolder(isSource: true));
-        BrowseOutputCommand = new RelayCommand(async () => await BrowseFolder(isSource: false));
+        // 3. Other sub-ViewModels.
+        Progress   = new SortingProgressViewModel();
+        Preview    = new ImagePreviewViewModel();
+        Connection = new ConnectionViewModel(_lmService, AppendLog)
+        {
+            LmStudioUrl = Settings.LmStudioUrl,
+            ModelName   = Settings.ModelName
+        };
 
-        // 4. Wire up service events
-        _sorterService.OnLogMessage += AppendLog;
-        _sorterService.OnFileProcessed += OnFileProcessed;
+        // 4. Forward PropertyChanged from sub-ViewModels so XAML bindings refresh.
+        //    When Settings raises a change, MainViewModel re-raises with the same name
+        //    so any binding on MainViewModel (e.g. {Binding LmStudioUrl}) also updates.
+        Settings.PropertyChanged   += (_, e) => RaisePropertyChanged(e.PropertyName);
+        Progress.PropertyChanged   += (_, e) => RaisePropertyChanged(e.PropertyName);
+        Connection.PropertyChanged += (_, e) => RaisePropertyChanged(e.PropertyName);
+
+        // 5. Commands.
+        StartSortCommand       = new RelayCommand(async () => await ExecuteSortAsync(), () => !IsSorting);
+        CancelSortCommand      = new RelayCommand(ExecuteCancel, () => IsSorting);
+        ClearLogCommand        = new RelayCommand(() => LogEntries.Clear());
+        InstallLmStudioCommand = new RelayCommand(async () => await ExecuteInstallCliAsync());
+        LoadLmStudioCommand    = new RelayCommand(async () => await ExecuteLoadServerAsync());
+        StopServerCommand      = new RelayCommand(ExecuteStopServer);
+        BrowseSourceCommand    = new RelayCommand(async () => await BrowseFolderAsync(isSource: true));
+        BrowseOutputCommand    = new RelayCommand(async () => await BrowseFolderAsync(isSource: false));
+
+        // 6. Service event wiring.
+        _sorterService.OnLogMessage        += AppendLog;
+        _sorterService.OnFileProcessed     += OnFileProcessed;
         _sorterService.OnTokenStatsUpdated += OnTokenStatsUpdated;
     }
 
-    // --- Command Implementations ---
+    // ── Command Implementations ───────────────────────────────────────────────
 
-    private async Task ExecuteSort()
+    private async Task ExecuteSortAsync()
     {
-        if (string.IsNullOrWhiteSpace(SortingFolder) || !Directory.Exists(SortingFolder))
+        if (string.IsNullOrWhiteSpace(Settings.SortingFolder) ||
+            !Directory.Exists(Settings.SortingFolder))
         {
-            FooterStatusText = "⚠ Please select a valid source folder.";
+            Progress.FooterStatusText = "⚠ Please select a valid source folder.";
             AppendLog("[ERROR] Invalid or missing source folder.");
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(SortedFolder))
+        if (string.IsNullOrWhiteSpace(Settings.SortedFolder))
         {
-            FooterStatusText = "⚠ Please select an output folder.";
+            Progress.FooterStatusText = "⚠ Please select an output folder.";
             AppendLog("[ERROR] Output folder not set.");
             return;
         }
 
-        _lmService.UpdateSettings(LmStudioUrl, ModelName);
+        _lmService.UpdateSettings(Settings.LmStudioUrl, Settings.ModelName);
 
         IsSorting = true;
-        ProcessedFiles.Clear();
-        FooterStatusText = "Sorting in progress...";
+        Progress.Reset();
+        Progress.FooterStatusText = "Sorting in progress...";
         _cts = new CancellationTokenSource();
 
         try
         {
-            var currentSettings = new SorterSettings
-            {
-                SortingFolder = SortingFolder,
-                SortedFolder = SortedFolder,
-                LmStudioUrl = LmStudioUrl,
-                ModelName = ModelName,
-                UsePrefix = UsePrefix,
-                Prefix = Prefix,
-                IgnoreNonDatedFiles = IgnoreNonDatedFiles,
-                ShowTokenCost = ShowTokenCost
-            };
-
             var results = await _sorterService.SortFilesAsync(
-                currentSettings.SortingFolder,
-                currentSettings.SortedFolder,
-                currentSettings,
+                Settings.SortingFolder,
+                Settings.SortedFolder,
+                Settings.ToModel(),
                 _cts.Token);
 
             int succeeded = 0, failed = 0;
             foreach (var r in results) { if (r.Success) succeeded++; else failed++; }
-            FooterStatusText = $"Done! {succeeded} sorted, {failed} failed.";
+            Progress.FooterStatusText = $"Done! {succeeded} sorted, {failed} failed.";
         }
         catch (OperationCanceledException)
         {
-            FooterStatusText = "Sort cancelled.";
+            Progress.FooterStatusText = "Sort cancelled.";
             AppendLog("[CANCEL] Operation cancelled by user.");
         }
         catch (Exception ex)
         {
-            FooterStatusText = $"Error: {ex.Message}";
+            Progress.FooterStatusText = $"Error: {ex.Message}";
             AppendLog($"[FATAL] {ex.Message}");
         }
         finally
@@ -315,118 +262,43 @@ public bool UseGpu
     private void ExecuteCancel()
     {
         _cts?.Cancel();
-        FooterStatusText = "Cancelling...";
+        Progress.FooterStatusText = "Cancelling...";
     }
 
-    private async Task ExecuteTestConnection()
+    private async Task ExecuteInstallCliAsync()
     {
-        ConnectionStatusText = "LM STUDIO: TESTING...";
-        ConnectionState = "Disconnected";
-        _lmService.UpdateSettings(LmStudioUrl, ModelName);
-
-        var result = await _lmService.TestConnectionAsync();
-        
-        if (result.IsSuccess)
-        {
-            ConnectionStatusText = "LM STUDIO: CONNECTED";
-            ConnectionState = "Connected";
-            AppendLog($"[OK] LM Studio connected at {LmStudioUrl}");
-        }
-        else
-        {
-            // Check if it's a connection refusal/network error vs other errors
-            if (result.Message.Contains("refused") || result.Message.Contains("connection failed"))
-                ConnectionState = "Refused";
-            else
-                ConnectionState = "Disconnected";
-
-            ConnectionStatusText = $"LM STUDIO: {ConnectionState.ToUpper()}";
-            AppendLog($"[ERROR] Connection failed: {result.Message}");
-        }
-    }
-
-    private void ExecuteResetSettings()
-{
-    try
-    {
-        SettingReset.Execute();
-        var fresh = SettingsService.Load();
-        SortingFolder = fresh.SortingFolder;
-        SortedFolder = fresh.SortedFolder;
-        LmStudioUrl = fresh.LmStudioUrl;
-        ModelName = fresh.ModelName;
-        UsePrefix = fresh.UsePrefix;
-        Prefix = fresh.Prefix;
-        IgnoreNonDatedFiles = fresh.IgnoreNonDatedFiles;
-        ShowTokenCost = fresh.ShowTokenCost;
-        _selectedModel = fresh.ModelName;
-        _useGpu = fresh.UseGpu; // Add this line
-        AppendLog("[INFO] Settings reset to defaults.");
-    }
-    catch (Exception ex)
-    {
-        AppendLog($"[ERROR] Reset failed: {ex.Message}");
-    }
-}
-
-    private void ExecuteInstallCli()
-    {
-        AppendLog($"[INFO] Starting LM Studio CLI installation for model: {ModelName}...");
+        AppendLog($"[INFO] Starting LM Studio CLI installation for model: {Settings.ModelName}...");
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Verb = "runas",
-                UseShellExecute = true,
-                Arguments = $"-Command \"npx lmstudio install-cli; lms get {ModelName}\""
-            };
-            System.Diagnostics.Process.Start(psi)?.WaitForExit();
-            AppendLog($"[SUCCESS] Installation/Download process for {ModelName} finished.");
+            _cliService.InstallModel(Settings.ModelName);
+            AppendLog($"[SUCCESS] Installation/Download process for {Settings.ModelName} finished.");
         }
         catch (Exception ex) { AppendLog($"[ERROR] Install failed: {ex.Message}"); }
     }
 
-    private void ExecuteLoadServer()
+    private async Task ExecuteLoadServerAsync()
     {
-        AppendLog($"[INFO] Loading {ModelName} and starting server...");
-        Task.Run(() =>
+        AppendLog($"[INFO] Loading {Settings.ModelName} and starting server...");
+        try
         {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Verb = "runas",
-                    UseShellExecute = true,
-                    Arguments = $"-Command \"lms load {ModelName}; Start-Sleep -s 1; lms server start\""
-                };
-                System.Diagnostics.Process.Start(psi)?.WaitForExit();
-                AppendLog($"[SUCCESS] LM Studio Server process finished.");
-            }
-            catch (Exception ex) { AppendLog($"[ERROR] Server launch failed: {ex.Message}"); }
-        });
+            await _cliService.LoadServerAsync(Settings.ModelName);
+            AppendLog("[SUCCESS] LM Studio Server process finished.");
+        }
+        catch (Exception ex) { AppendLog($"[ERROR] Server launch failed: {ex.Message}"); }
     }
 
     private void ExecuteStopServer()
     {
-        AppendLog($"[INFO] Unloading model: {ModelName}...");
+        AppendLog($"[INFO] Unloading model: {Settings.ModelName}...");
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Verb = "runas",
-                UseShellExecute = true,
-                Arguments = $"-Command \"lms unload {ModelName}\""
-            };
-            System.Diagnostics.Process.Start(psi)?.WaitForExit();
-            AppendLog($"[SUCCESS] Model {ModelName} unloaded.");
+            _cliService.UnloadModel(Settings.ModelName);
+            AppendLog($"[SUCCESS] Model {Settings.ModelName} unloaded.");
         }
         catch (Exception ex) { AppendLog($"[ERROR] Stop failed: {ex.Message}"); }
     }
 
-    private async Task BrowseFolder(bool isSource)
+    private async Task BrowseFolderAsync(bool isSource)
     {
         if (StorageProvider is null)
         {
@@ -441,17 +313,14 @@ public bool UseGpu
         });
 
         if (folders.Count == 0) return;
-
         var path = folders[0].TryGetLocalPath();
         if (path is null) return;
 
-        if (isSource)
-            SortingFolder = path;
-        else
-            SortedFolder = path;
+        if (isSource) Settings.SortingFolder = path;
+        else Settings.SortedFolder = path;
     }
 
-    // --- Event Handlers (Called by Services) ---
+    // ── Event Handlers ────────────────────────────────────────────────────────
 
     private void AppendLog(string message)
     {
@@ -461,35 +330,21 @@ public bool UseGpu
 
     private void OnFileProcessed(FileProcessResult result)
     {
-        // Load the bitmap BEFORE switching to the UI thread so the file read
-        // doesn't block the UI. By this point the file has already been moved,
-        // so we read from DestinationPath (which is set by FileSorterService).
-        Bitmap? bitmap = null;
         var previewPath = result.Success ? result.DestinationPath : result.OriginalPath;
-        try
-        {
-            if (File.Exists(previewPath))
-            {
-                // Read all bytes first so the file handle is released immediately
-                var bytes = File.ReadAllBytes(previewPath);
-                using var ms = new MemoryStream(bytes);
-                bitmap = new Bitmap(ms);
-            }
-        }
-        catch { /* bitmap stays null */ }
+        var bitmap = ImageHelper.LoadBitmapSafe(previewPath);
 
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             var entry = result.Success
                 ? $"✓  [{result.Category}]  {result.NewFileName}"
                 : $"✗  {Path.GetFileName(result.OriginalPath)}  — {result.Error}";
-            ProcessedFiles.Add(entry);
-            ResultCountText = $"{ProcessedFiles.Count} files";
 
-            // Dispose the previous bitmap to free memory
-            var old = CurrentImageSource;
-            CurrentImageSource = bitmap;
-            HasImage = bitmap is not null;
+            Progress.ProcessedFiles.Add(entry);
+            Progress.ResultCountText = $"{Progress.ProcessedFiles.Count} files";
+
+            var old = Preview.CurrentImageSource;
+            Preview.CurrentImageSource = bitmap;
+            Preview.HasImage = bitmap is not null;
             old?.Dispose();
         });
     }
@@ -498,88 +353,29 @@ public bool UseGpu
     {
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            InputTokens = stats.InputTokens;
-            OutputTokens = stats.OutputTokens;
-            TokensPerSecond = stats.TokensPerSecond > 0 ? $"{stats.TokensPerSecond:F1} t/s" : "—";
-            ProgressText = $"{stats.TotalProcessed}/{stats.TotalFiles}";
+            Progress.InputTokens     = stats.InputTokens;
+            Progress.OutputTokens    = stats.OutputTokens;
+            Progress.TokensPerSecond = stats.TokensPerSecond > 0
+                ? $"{stats.TokensPerSecond:F1} t/s" : "—";
+            Progress.ProgressText    = $"{stats.TotalProcessed}/{stats.TotalFiles}";
 
             if (stats.TotalFiles > 0)
-                ProgressValue = (double)stats.TotalProcessed / stats.TotalFiles * 100;
+                Progress.ProgressValue = (double)stats.TotalProcessed / stats.TotalFiles * 100;
         });
     }
 
-  private void SaveSettings()
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>Called by pass-through setters that don't need special side-effects.</summary>
+    private void OnSettingChanged() { /* hook for future cross-cutting concerns */ }
+
+    /// <summary>
+    /// Re-raises PropertyChanged under the given name so XAML bindings
+    /// on MainViewModel refresh when a sub-ViewModel property changes.
+    /// </summary>
+  private void RaisePropertyChanged(string? propertyName)
 {
-    SettingsService.Save(new SorterSettings
-    {
-        SortingFolder = _sortingFolder,
-        SortedFolder = _sortedFolder,
-        LmStudioUrl = _lmStudioUrl,
-        ModelName = _modelName,
-        UsePrefix = _usePrefix,
-        Prefix = _prefix,
-        IgnoreNonDatedFiles = _ignoreNonDatedFiles,
-        ShowTokenCost = _showTokenCost,
-        UseGpu = _useGpu // Add this line
-    });
+    if (propertyName is not null)
+        OnPropertyChanged(propertyName);
 }
-}
-
-// --- MVVM Helpers ---
-
-public class BindableBase : INotifyPropertyChanged
-{
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    /// <summary>Returns true if the value actually changed.</summary>
-    protected bool RaiseAndSetIfChanged<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        return true;
-    }
-}
-
-public class RelayCommand : ICommand
-{
-    private readonly Func<Task>? _asyncExecute;
-    private readonly Action? _syncExecute;
-    private readonly Func<bool>? _canExecute;
-    private bool _isExecuting;
-
-    public RelayCommand(Action execute, Func<bool>? canExecute = null)
-    {
-        _syncExecute = execute;
-        _canExecute = canExecute;
-    }
-
-    public RelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
-    {
-        _asyncExecute = execute;
-        _canExecute = canExecute;
-    }
-
-    public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
-
-    public async void Execute(object? parameter)
-    {
-        if (!CanExecute(parameter)) return;
-        if (_asyncExecute is not null)
-        {
-            _isExecuting = true;
-            RaiseCanExecuteChanged();
-            try { await _asyncExecute(); }
-            finally { _isExecuting = false; RaiseCanExecuteChanged(); }
-        }
-        else
-        {
-            _syncExecute?.Invoke();
-        }
-    }
-
-    public event EventHandler? CanExecuteChanged;
-
-    public void RaiseCanExecuteChanged() =>
-        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
