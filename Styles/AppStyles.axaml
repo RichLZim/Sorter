@@ -1,5 +1,11 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converter="using:Sorter.Converters">
+
+    <!-- Add this converter definition to the top of your styles file if you use a converter class, 
+         OR we can use a simpler approach by binding directly to a Color property in the ViewModel.
+         To keep things simple and avoid adding new files, I will provide the updated Styles 
+         and the updated ViewModel below using the direct property approach. -->
 
     <!-- Dark industrial theme with amber accents -->
     <Style Selector="Window">

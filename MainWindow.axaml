@@ -4,8 +4,8 @@
         x:Class="Sorter.MainWindow"
         x:DataType="vm:MainViewModel" 
         Title="Sorterz — AI Image Organizer"
-        Width="980" Height="720"
-        MinWidth="860" MinHeight="600"
+        Width="1200" Height="720"
+        MinWidth="1000" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="#0D0F14"
         Icon="/Assets/Icon.ico">
@@ -27,36 +27,11 @@
                         <TextBlock Text="AI-POWERED IMAGE ORGANIZER" Classes="Label" FontSize="11" Margin="0,1,0,0"/>
                     </StackPanel>
                 </StackPanel>
-                
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <!-- Connection Status is now bound to ViewModel -->
-                    <Ellipse x:Name="ConnectionIndicator" Width="8" Height="8" Fill="#3A4050"/>
-                    <TextBlock Text="{Binding ConnectionStatusText}" Classes="Label" VerticalAlignment="Center"/>
-					 
-                    <Button Content="TEST" 
-                            Classes="Secondary" 
-                            Padding="8,4" FontSize="11" 
-                            Command="{Binding TestConnectionCommand}"/>
-
-                    <Button Content="LM INSTALL" 
-                            Background="#228B22" 
-                            Foreground="White"
-                            Padding="24,4" 
-                            FontSize="11" 
-                            Command="{Binding InstallLmStudioCommand}"/>
-
-                    <Button Content="START LM SERVER" 
-                            Background="#228B22" 
-                            Foreground="White"
-                            Padding="24,4" 
-                            FontSize="11" 
-                            Command="{Binding LoadLmStudioCommand}"/>
-                </StackPanel>
             </Grid>
         </Border>
 
         <!-- ═══ MAIN CONTENT ═══ -->
-        <Grid Grid.Row="1" ColumnDefinitions="300,*">
+        <Grid Grid.Row="1" ColumnDefinitions="300,*,300">
 
             <!-- ═══ LEFT PANEL: CONTROLS ═══ -->
             <Border Grid.Column="0" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="0,0,1,0">
@@ -84,23 +59,6 @@
                                         <Button Grid.Column="2" Content="···" Classes="Secondary"
                                                 Padding="10,6" Command="{Binding BrowseOutputCommand}"/>
                                     </Grid>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- LM STUDIO SETTINGS CARD -->
-                        <Border Classes="Card">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="LM STUDIO" Classes="Label"/>
-
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="SERVER URL" Classes="Label" FontSize="10"/>
-                                    <TextBox Text="{Binding LmStudioUrl}"/>
-                                </StackPanel>
-
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="MODEL NAME" Classes="Label" FontSize="10"/>
-                                    <TextBox Text="{Binding ModelName}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -139,29 +97,7 @@
                         </Border>
 
                         <!-- TOKEN STATS CARD -->
-                        <Border Classes="Card">
-                            <StackPanel Spacing="10">
-                                <CheckBox IsChecked="{Binding ShowTokenCost}" Content="Show Token Cost / Speed"/>
-
-                                <Border Background="#0D0F14" BorderBrush="#1E2430" 
-                                        BorderThickness="1" CornerRadius="4" Padding="10,8"
-                                        IsVisible="{Binding ShowTokenCost}">
-                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding InputTokens}" Classes="Value" FontSize="12"/>
-
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="OUTPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OutputTokens}" Classes="Value" FontSize="12"/>
-
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TokensPerSecond}" Classes="Value" FontSize="12"/>
-
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS" Classes="Label" FontSize="10"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="12"/>
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </Border>
+                      
                         
                         <!-- IMAGE PREVIEW CARD -->
                         <Border Classes="Card">
@@ -189,7 +125,7 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- ═══ RIGHT PANEL: LOG & RESULTS ═══ -->
+            <!-- ═══ MIDDLE PANEL: LOG & RESULTS ═══ -->
             <Grid Grid.Column="1" RowDefinitions="*,Auto,180">
                 
                 <!-- Log Output -->
@@ -239,6 +175,110 @@
                     </Grid>
                 </Border>
             </Grid>
+
+            <!-- ═══ RIGHT PANEL: LLM MODULE SETTINGS ═══ -->
+            <Border Grid.Column="2" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="0,0,0,1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16" Spacing="14">
+                        
+                        <!-- Connection Status & Test -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="CONNECTION" Classes="Label"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                   <Ellipse Width="10" Height="10" Fill="{Binding ConnectionColor}"/>
+                                    <TextBlock Text="{Binding ConnectionStatusText}" Classes="Label" FontSize="10"/>
+                                </StackPanel>
+                                <Button Content="TEST CONNECTION" 
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding TestConnectionCommand}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Server Control -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="SERVER CONTROL" Classes="Label"/>
+                                <Button Content="START SERVER" 
+                                        Background="#228B22" Foreground="White"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding LoadLmStudioCommand}"/>
+                                <Button Content="STOP SERVER" 
+                                        Classes="Danger"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding StopServerCommand}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Model Selection & Install -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="MODEL SELECTION" Classes="Label"/>
+                                <ComboBox SelectedItem="{Binding SelectedModel}" 
+                                          ItemsSource="{Binding AvailableModels}"
+                                          HorizontalAlignment="Stretch"
+                                          FontSize="11"
+                                          Background="#161A22"
+                                          Foreground="#E8C55A">
+                                    <ComboBox.Styles>
+                                        <Style Selector="ComboBoxItem">
+                                            <Setter Property="Foreground" Value="#C8D0DC"/>
+                                        </Style>
+                                    </ComboBox.Styles>
+                                </ComboBox>
+                                <Button Content="INSTALL SELECTED MODEL" 
+                                        Background="#228B22" Foreground="White"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding InstallLmStudioCommand}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Hostname -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="LLM HOSTNAME (IP)" Classes="Label"/>
+                                <TextBox Text="{Binding LmStudioUrl}" 
+                                         FontSize="11" 
+                                         Padding="8,6"
+                                         Background="#161A22" 
+                                         BorderBrush="#2A3040"/>
+                            </StackPanel>
+                        </Border>
+  <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <CheckBox IsChecked="{Binding ShowTokenCost}" Content="Show Token Cost / Speed"/>
+
+                                <Border Background="#0D0F14" BorderBrush="#1E2430" 
+                                        BorderThickness="1" CornerRadius="4" Padding="10,8"
+                                        IsVisible="{Binding ShowTokenCost}">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding InputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="OUTPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OutputTokens}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TokensPerSecond}" Classes="Value" FontSize="12"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS" Classes="Label" FontSize="10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}" Classes="Value" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <!-- GPU Setting -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <CheckBox IsChecked="{Binding UseGpu}" Content="Use GPU for Inference"/>
+                                <TextBlock Text="Requires compatible NVIDIA/AMD GPU"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
 
         </Grid>
 

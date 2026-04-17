@@ -30,7 +30,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo [3/3] Publishing self-contained .exe...
-dotnet publish Sorter.csproj -c Release -r win-x64 --self-contained true -o ../publish /p:PublishSingleFile=true
+dotnet publish Sorter.csproj -c Release -r win-x64 --self-contained true -o ../Sorter/publish /p:PublishSingleFile=true
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Publish failed.
     pause

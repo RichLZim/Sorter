@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Sorter.Models;
@@ -19,7 +20,7 @@ public class MainViewModel : BindableBase
     private readonly LmStudioService _lmService;
     private readonly FileSorterService _sorterService;
     private CancellationTokenSource? _cts;
-
+    private bool _useGpu = false;
     // --- 1. Folder & Path Settings ---
     private string _sortingFolder = "";
     public string SortingFolder
@@ -49,6 +50,56 @@ public class MainViewModel : BindableBase
         get => _modelName;
         set { RaiseAndSetIfChanged(ref _modelName, value); SaveSettings(); }
     }
+
+    private string _selectedModel = "gemma-4-26b";
+    public string SelectedModel
+    {
+        get => _selectedModel;
+        set 
+        { 
+            if (RaiseAndSetIfChanged(ref _selectedModel, value))
+            {
+                ModelName = value;
+                SaveSettings();
+            }
+        }
+    }
+
+    private string _connectionState = "Disconnected"; // Disconnected, Connected, Refused
+    public string ConnectionState
+    {
+        get => _connectionState;
+        set 
+        { 
+            RaiseAndSetIfChanged(ref _connectionState, value);
+            UpdateConnectionColor();
+        }
+    }
+
+    private IBrush _connectionColor = Brushes.Gray;
+    public IBrush ConnectionColor
+    {
+        get => _connectionColor;
+        set => RaiseAndSetIfChanged(ref _connectionColor, value);
+    }
+
+    private void UpdateConnectionColor()
+    {
+        ConnectionColor = ConnectionState switch
+        {
+            "Connected" => Brushes.Green,
+            "Refused" => Brushes.Red,
+            _ => Brushes.Gray
+        };
+    }
+
+    public ObservableCollection<string> AvailableModels { get; } = new()
+    {
+        "gemma-4-26b",
+        "llama-3-8b",
+        "mistral-7b",
+        "phi-3-mini"
+    };
 
     // --- 3. Sorting Logic Options ---
     private bool _usePrefix = false;
@@ -100,11 +151,14 @@ public class MainViewModel : BindableBase
     private string _progressText = "0/0";
     public string ProgressText { get => _progressText; set => RaiseAndSetIfChanged(ref _progressText, value); }
 
+    
+    
+    
     // --- 5. Status & Feedback (UI Text) ---
     private string _statusText = "Ready";
     public string StatusText { get => _statusText; set => RaiseAndSetIfChanged(ref _statusText, value); }
 
-    private string _connectionStatusText = "LM STUDIO: DISCONNECTED";
+    private string _connectionStatusText = "LMS SERVER: OFFLINE";
     public string ConnectionStatusText { get => _connectionStatusText; set => RaiseAndSetIfChanged(ref _connectionStatusText, value); }
 
     private string _footerStatusText = "Configure folders above and press START SORT";
@@ -132,6 +186,11 @@ public class MainViewModel : BindableBase
 
     public ObservableCollection<string> LogEntries { get; } = new();
     public ObservableCollection<string> ProcessedFiles { get; } = new();
+public bool UseGpu
+{
+    get => _useGpu;
+    set { RaiseAndSetIfChanged(ref _useGpu, value); SaveSettings(); }
+}
 
     // --- Commands ---
     public RelayCommand StartSortCommand { get; }
@@ -141,6 +200,7 @@ public class MainViewModel : BindableBase
     public ICommand ResetSettingsCommand { get; }
     public ICommand InstallLmStudioCommand { get; }
     public ICommand LoadLmStudioCommand { get; }
+    public ICommand StopServerCommand { get; }
     public ICommand BrowseSourceCommand { get; }
     public ICommand BrowseOutputCommand { get; }
 
@@ -160,6 +220,8 @@ public class MainViewModel : BindableBase
         _prefix = settings.Prefix;
         _ignoreNonDatedFiles = settings.IgnoreNonDatedFiles;
         _showTokenCost = settings.ShowTokenCost;
+        _selectedModel = settings.ModelName;
+        _useGpu = settings.UseGpu;
 
         // 2. Initialize services
         _lmService = new LmStudioService(LmStudioUrl, ModelName);
@@ -173,6 +235,7 @@ public class MainViewModel : BindableBase
         ResetSettingsCommand = new RelayCommand(ExecuteResetSettings);
         InstallLmStudioCommand = new RelayCommand(ExecuteInstallCli);
         LoadLmStudioCommand = new RelayCommand(ExecuteLoadServer);
+        StopServerCommand = new RelayCommand(ExecuteStopServer);
         BrowseSourceCommand = new RelayCommand(async () => await BrowseFolder(isSource: true));
         BrowseOutputCommand = new RelayCommand(async () => await BrowseFolder(isSource: false));
 
@@ -195,7 +258,7 @@ public class MainViewModel : BindableBase
 
         if (string.IsNullOrWhiteSpace(SortedFolder))
         {
-            FooterStatusText = "⚠ Please select a valid output folder.";
+            FooterStatusText = "⚠ Please select an output folder.";
             AppendLog("[ERROR] Output folder not set.");
             return;
         }
@@ -258,40 +321,57 @@ public class MainViewModel : BindableBase
     private async Task ExecuteTestConnection()
     {
         ConnectionStatusText = "LM STUDIO: TESTING...";
+        ConnectionState = "Disconnected";
         _lmService.UpdateSettings(LmStudioUrl, ModelName);
 
         var result = await _lmService.TestConnectionAsync();
-        ConnectionStatusText = result.IsSuccess ? "LM STUDIO: CONNECTED" : "LM STUDIO: UNREACHABLE";
-        AppendLog(result.IsSuccess
-            ? $"[OK] LM Studio connected at {LmStudioUrl}"
-            : $"[ERROR] Connection failed: {result.Message}");
+        
+        if (result.IsSuccess)
+        {
+            ConnectionStatusText = "LM STUDIO: CONNECTED";
+            ConnectionState = "Connected";
+            AppendLog($"[OK] LM Studio connected at {LmStudioUrl}");
+        }
+        else
+        {
+            // Check if it's a connection refusal/network error vs other errors
+            if (result.Message.Contains("refused") || result.Message.Contains("connection failed"))
+                ConnectionState = "Refused";
+            else
+                ConnectionState = "Disconnected";
+
+            ConnectionStatusText = $"LM STUDIO: {ConnectionState.ToUpper()}";
+            AppendLog($"[ERROR] Connection failed: {result.Message}");
+        }
     }
 
     private void ExecuteResetSettings()
+{
+    try
     {
-        try
-        {
-            SettingReset.Execute();
-            var fresh = SettingsService.Load();
-            SortingFolder = fresh.SortingFolder;
-            SortedFolder = fresh.SortedFolder;
-            LmStudioUrl = fresh.LmStudioUrl;
-            ModelName = fresh.ModelName;
-            UsePrefix = fresh.UsePrefix;
-            Prefix = fresh.Prefix;
-            IgnoreNonDatedFiles = fresh.IgnoreNonDatedFiles;
-            ShowTokenCost = fresh.ShowTokenCost;
-            AppendLog("[INFO] Settings reset to defaults.");
-        }
-        catch (Exception ex)
-        {
-            AppendLog($"[ERROR] Reset failed: {ex.Message}");
-        }
+        SettingReset.Execute();
+        var fresh = SettingsService.Load();
+        SortingFolder = fresh.SortingFolder;
+        SortedFolder = fresh.SortedFolder;
+        LmStudioUrl = fresh.LmStudioUrl;
+        ModelName = fresh.ModelName;
+        UsePrefix = fresh.UsePrefix;
+        Prefix = fresh.Prefix;
+        IgnoreNonDatedFiles = fresh.IgnoreNonDatedFiles;
+        ShowTokenCost = fresh.ShowTokenCost;
+        _selectedModel = fresh.ModelName;
+        _useGpu = fresh.UseGpu; // Add this line
+        AppendLog("[INFO] Settings reset to defaults.");
     }
+    catch (Exception ex)
+    {
+        AppendLog($"[ERROR] Reset failed: {ex.Message}");
+    }
+}
 
     private void ExecuteInstallCli()
     {
-        AppendLog("[INFO] Starting LM Studio CLI installation...");
+        AppendLog($"[INFO] Starting LM Studio CLI installation for model: {ModelName}...");
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo
@@ -299,17 +379,17 @@ public class MainViewModel : BindableBase
                 FileName = "powershell.exe",
                 Verb = "runas",
                 UseShellExecute = true,
-                Arguments = "-Command \"npx lmstudio install-cli; lms get gemma-4-26b\""
+                Arguments = $"-Command \"npx lmstudio install-cli; lms get {ModelName}\""
             };
             System.Diagnostics.Process.Start(psi)?.WaitForExit();
-            AppendLog("[SUCCESS] Installation process finished.");
+            AppendLog($"[SUCCESS] Installation/Download process for {ModelName} finished.");
         }
         catch (Exception ex) { AppendLog($"[ERROR] Install failed: {ex.Message}"); }
     }
 
     private void ExecuteLoadServer()
     {
-        AppendLog("[INFO] Loading Gemma-4-26b and starting server...");
+        AppendLog($"[INFO] Loading {ModelName} and starting server...");
         Task.Run(() =>
         {
             try
@@ -319,13 +399,31 @@ public class MainViewModel : BindableBase
                     FileName = "powershell.exe",
                     Verb = "runas",
                     UseShellExecute = true,
-                    Arguments = "-Command \"lms load gemma-4-26b; Start-Sleep -s 1; lms server start\""
+                    Arguments = $"-Command \"lms load {ModelName}; Start-Sleep -s 1; lms server start\""
                 };
                 System.Diagnostics.Process.Start(psi)?.WaitForExit();
-                AppendLog("[SUCCESS] LM Studio Server process finished.");
+                AppendLog($"[SUCCESS] LM Studio Server process finished.");
             }
             catch (Exception ex) { AppendLog($"[ERROR] Server launch failed: {ex.Message}"); }
         });
+    }
+
+    private void ExecuteStopServer()
+    {
+        AppendLog($"[INFO] Unloading model: {ModelName}...");
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Verb = "runas",
+                UseShellExecute = true,
+                Arguments = $"-Command \"lms unload {ModelName}\""
+            };
+            System.Diagnostics.Process.Start(psi)?.WaitForExit();
+            AppendLog($"[SUCCESS] Model {ModelName} unloaded.");
+        }
+        catch (Exception ex) { AppendLog($"[ERROR] Stop failed: {ex.Message}"); }
     }
 
     private async Task BrowseFolder(bool isSource)
@@ -410,20 +508,21 @@ public class MainViewModel : BindableBase
         });
     }
 
-    private void SaveSettings()
+  private void SaveSettings()
+{
+    SettingsService.Save(new SorterSettings
     {
-        SettingsService.Save(new SorterSettings
-        {
-            SortingFolder = _sortingFolder,
-            SortedFolder = _sortedFolder,
-            LmStudioUrl = _lmStudioUrl,
-            ModelName = _modelName,
-            UsePrefix = _usePrefix,
-            Prefix = _prefix,
-            IgnoreNonDatedFiles = _ignoreNonDatedFiles,
-            ShowTokenCost = _showTokenCost
-        });
-    }
+        SortingFolder = _sortingFolder,
+        SortedFolder = _sortedFolder,
+        LmStudioUrl = _lmStudioUrl,
+        ModelName = _modelName,
+        UsePrefix = _usePrefix,
+        Prefix = _prefix,
+        IgnoreNonDatedFiles = _ignoreNonDatedFiles,
+        ShowTokenCost = _showTokenCost,
+        UseGpu = _useGpu // Add this line
+    });
+}
 }
 
 // --- MVVM Helpers ---

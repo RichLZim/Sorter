@@ -12,6 +12,7 @@ public class SorterSettings
     public string ModelName { get; set; } = "gemma-4-26b";
     public string SortingFolder { get; set; } = "";
     public string SortedFolder { get; set; } = "";
+    public bool UseGpu { get; set; } = false;
 }
 
 public class FileProcessResult
