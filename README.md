@@ -6,7 +6,7 @@ Sorterz is a high-performance desktop application designed to automatically orga
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![AI](https://img.shields.io/badge/AI-Local--LLM-green)
-
+![GitHub Logo](./sorter.jpg)
 ## ✨ Features
 
 * **🤖 Local AI Vision:** Uses LM Studio (or any OpenAI-compatible local server) to analyze images. Your photos never leave your machine, ensuring 100% privacy.
