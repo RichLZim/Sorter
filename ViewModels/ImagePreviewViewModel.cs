@@ -1,14 +1,27 @@
-using System;
 using Avalonia.Media.Imaging;
-using Sorter.ViewModels;
+using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 
 namespace Sorter.ViewModels;
 
-public class ImagePreviewViewModel : ViewModelBase
+public partial class ImagePreviewViewModel : ObservableObject, IDisposable
 {
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasImage))]
     private Bitmap? _currentImageSource;
-    public Bitmap? CurrentImageSource { get => _currentImageSource; set => RaiseAndSetIfChanged(ref _currentImageSource, value); }
 
-    private bool _hasImage;
-    public bool HasImage { get => _hasImage; set => RaiseAndSetIfChanged(ref _hasImage, value); }
+    public bool HasImage => CurrentImageSource is not null;
+
+    // Safe disposal method to prevent unmanaged memory leaks
+    public void UpdateImage(Bitmap? newImage)
+    {
+        var oldImage = CurrentImageSource;
+        CurrentImageSource = newImage;
+        oldImage?.Dispose(); 
+    }
+
+    public void Dispose()
+    {
+        CurrentImageSource?.Dispose();
+    }
 }

@@ -12,9 +12,10 @@ public class FileSorterService
 {
     private readonly LmStudioService _lmService;
 
-    public event Action<string>? OnLogMessage;
-    public event Action<FileProcessResult>? OnFileProcessed;
-    public event Action<TokenStats>? OnTokenStatsUpdated;
+    // Use IProgress for thread-safe UI updates
+    public IProgress<string>? LogProgress { get; set; }
+    public IProgress<FileProcessResult>? FileProcessedProgress { get; set; }
+    public IProgress<TokenStats>? TokenStatsProgress { get; set; }
 
     private int _totalInputTokens;
     private int _totalOutputTokens;
@@ -50,12 +51,18 @@ public class FileSorterService
             Log($"[CREATED] Output folder: {sortedFolder}");
         }
 
-        var allFiles = Directory
-            .GetFiles(sortingFolder, "*.*", SearchOption.AllDirectories)
+        Log($"[SCAN] Scanning {sortingFolder} for images...");
+
+        // Safe enumeration ignores inaccessible system/hidden folders without crashing
+        var enumerationOptions = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = true
+        };
+
+        var allFiles = Directory.EnumerateFiles(sortingFolder, "*.*", enumerationOptions)
             .Where(f => DateExtractorService.IsSupportedImage(f))
             .ToList();
-
-        Log($"[SCAN] Found {allFiles.Count} image files in: {sortingFolder}");
 
         if (settings.IgnoreNonDatedFiles)
         {
@@ -78,10 +85,10 @@ public class FileSorterService
                 allFiles[i], sortedFolder, settings, i + 1, totalFiles, cancellationToken);
 
             results.Add(result);
-            OnFileProcessed?.Invoke(result);
+            FileProcessedProgress?.Report(result);
 
             _processedCount++;
-            OnTokenStatsUpdated?.Invoke(new TokenStats
+            TokenStatsProgress?.Report(new TokenStats
             {
                 InputTokens = _totalInputTokens,
                 OutputTokens = _totalOutputTokens,
@@ -97,12 +104,8 @@ public class FileSorterService
     }
 
     private async Task<FileProcessResult> ProcessSingleFileAsync(
-        string filePath,
-        string sortedFolder,
-        SorterSettings settings,
-        int index,
-        int total,
-        CancellationToken cancellationToken)
+        string filePath, string sortedFolder, SorterSettings settings,
+        int index, int total, CancellationToken cancellationToken)
     {
         var result = new FileProcessResult { OriginalPath = filePath };
         var fileName = Path.GetFileName(filePath);
@@ -116,9 +119,6 @@ public class FileSorterService
                 ? $"{date.Value.Year}.{date.Value.Month:D2}.{date.Value.Day:D2}"
                 : "0000.00.00";
 
-            if (!date.HasValue)
-                Log($"  [WARN] No valid date found for: {fileName}");
-
             Log("  [AI] Sending to LM Studio...");
             var analysis = await _lmService.AnalyzeImageAsync(filePath, cancellationToken);
 
@@ -126,21 +126,17 @@ public class FileSorterService
             _totalOutputTokens += analysis.OutputTokens;
             _lastTokensPerSecond = analysis.TokensPerSecond;
 
-            Log($"  [AI] Category: {analysis.Category} | Desc: {analysis.Description} | " +
-                $"Tokens: {analysis.InputTokens}in/{analysis.OutputTokens}out @ {analysis.TokensPerSecond:F1} t/s");
-
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
             string prefixPart = (settings.UsePrefix && !string.IsNullOrWhiteSpace(settings.Prefix)) 
-                ? $"{settings.Prefix[..Math.Min(settings.Prefix.Length, 8)]}." 
-                : string.Empty;
+                ? $"{settings.Prefix[..Math.Min(settings.Prefix.Length, 8)]}." : "";
 
             string newName = $"{prefixPart}{dateStr}.{analysis.Description}{ext}";
-
             var categoryFolder = Path.Combine(sortedFolder, analysis.Category);
             Directory.CreateDirectory(categoryFolder);
-
             var destPath = GetUniqueFilePath(Path.Combine(categoryFolder, newName));
-            File.Move(filePath, destPath);
+
+            // Retry logic for locked files (e.g. OneDrive syncing, thumbnail generator)
+            await MoveFileWithRetryAsync(filePath, destPath);
 
             result.Success = true;
             result.NewFileName = Path.GetFileName(destPath);
@@ -154,7 +150,7 @@ public class FileSorterService
         {
             result.Success = false;
             result.Status = "Cancelled";
-            result.Error = "Operation was cancelled";
+            result.Error = "Operation cancelled";
             throw;
         }
         catch (Exception ex)
@@ -168,23 +164,35 @@ public class FileSorterService
         return result;
     }
 
+    private static async Task MoveFileWithRetryAsync(string source, string dest, int maxRetries = 3)
+    {
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                File.Move(source, dest);
+                return;
+            }
+            catch (IOException) when (i < maxRetries - 1)
+            {
+                await Task.Delay(500); // Wait 500ms before retrying
+            }
+        }
+        // Final attempt will throw naturally if it fails
+        File.Move(source, dest);
+    }
+
     private static string GetUniqueFilePath(string path)
     {
         if (!File.Exists(path)) return path;
-
         var dir = Path.GetDirectoryName(path)!;
         var nameNoExt = Path.GetFileNameWithoutExtension(path);
         var ext = Path.GetExtension(path);
         var counter = 1;
-
-        do
-        {
-            path = Path.Combine(dir, $"{nameNoExt}_{counter++}{ext}");
-        }
+        do { path = Path.Combine(dir, $"{nameNoExt}_{counter++}{ext}"); }
         while (File.Exists(path));
-
         return path;
     }
 
-    private void Log(string message) => OnLogMessage?.Invoke(message);
+    private void Log(string message) => LogProgress?.Report(message);
 }

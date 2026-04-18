@@ -15,39 +15,63 @@ public class LmStudioService : IDisposable
     private string _baseUrl;
     private string _modelName;
 
+    // When non-null/non-empty, AnalyzeImageAsync uses this instead of the built-in prompt.
+    public string? PromptOverride { get; set; }
+
+    // The default prompt, exposed so the UI can display it as placeholder text.
+    public const string DefaultPrompt =
+        "Analyze this image carefully. Respond with ONLY valid JSON in this exact format, no other text:\n" +
+        "{\n" +
+        "  \"category\": \"singleword\",\n" +
+        "  \"description\": \"three.word.description\"\n" +
+        "}\n\n" +
+        "Rules:\n" +
+        "- category: ONE word describing the main subject/theme (e.g. nature, food, people, animals, vehicles, architecture, sports, art)\n" +
+        "- description: EXACTLY three words joined with dots describing the specific scene (e.g. man.with.dog, kids.birthday.party, mountain.snow.sunset)\n" +
+        "- Use only lowercase letters and dots\n" +
+        "- Be specific but concise";
+
+   // --> ADD THIS NEW PROMPT BLOCK <--
+    public const string VrcPrompt =
+        "Analyze this VRChat or video game screenshot. Respond with ONLY valid JSON in this exact format, no other text:\n" +
+        "{\n" +
+        "  \"category\": \"singleword\",\n" +
+        "  \"description\": \"three.word.description\"\n" +
+        "}\n\n" +
+        "Rules:\n" +
+        "- category: ONE word describing the main subject (e.g. avatar, mirror, group, world, event, funny, scenic, action)\n" +
+        "- description: EXACTLY three words joined with dots describing the scene (e.g. cute.anime.girl, mirror.group.selfie, dark.scifi.world)\n" +
+        "- Use only lowercase letters and dots\n" +
+        "- Be specific but concise";
+
     public LmStudioService(string baseUrl, string modelName)
     {
-        _baseUrl = baseUrl.Trim().TrimEnd('/');
+        _baseUrl = SanitizeUrl(baseUrl);
         _modelName = modelName;
 
-        _client = new HttpClient
-        {
-            // Increased timeout to 2 minutes for vision models
-            Timeout = TimeSpan.FromMinutes(2)
-        };
-
+        _client = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
         _client.DefaultRequestHeaders.Add("Accept", "application/json");
     }
 
     public void UpdateSettings(string baseUrl, string modelName)
     {
-        _baseUrl = baseUrl.Trim().TrimEnd('/');
-
-        // Strip out trailing /v1 if the user accidentally pasted it
-        if (_baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
-        {
-            _baseUrl = _baseUrl.Substring(0, _baseUrl.Length - 3).TrimEnd('/');
-        }
-
+        _baseUrl = SanitizeUrl(baseUrl);
         _modelName = modelName;
+    }
+
+    private static string SanitizeUrl(string url)
+    {
+        url = url.Trim().TrimEnd('/');
+        if (url.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            url = url[..^3].TrimEnd('/');
+        return url;
     }
 
     public async Task<(bool IsSuccess, string Message)> TestConnectionAsync()
     {
         try
         {
-            var url = $"{_baseUrl}/v1/models";
-            var response = await _client.GetAsync(url);
+            var response = await _client.GetAsync($"{_baseUrl}/v1/models");
 
             if (!response.IsSuccessStatusCode)
                 return (false, $"HTTP Error: {response.StatusCode}");
@@ -58,18 +82,20 @@ public class LmStudioService : IDisposable
 
             return (true, "OK");
         }
+        catch (HttpRequestException ex)
+        {
+            return (false, $"Connection Refused: {ex.Message}");
+        }
+        catch (TaskCanceledException)
+        {
+            return (false, "Connection Timed Out.");
+        }
         catch (Exception ex)
         {
             return (false, $"Exception: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Analyzes an image and returns:
-    /// - A one-word folder category
-    /// - A three-word description for the filename
-    /// - Token stats
-    /// </summary>
     public async Task<ImageAnalysisResult> AnalyzeImageAsync(
         string imagePath,
         CancellationToken cancellationToken = default)
@@ -87,6 +113,10 @@ public class LmStudioService : IDisposable
             _ => "image/jpeg"
         };
 
+        string promptText = !string.IsNullOrWhiteSpace(PromptOverride)
+            ? PromptOverride
+            : DefaultPrompt;
+
         var requestBody = new
         {
             model = _modelName,
@@ -102,21 +132,7 @@ public class LmStudioService : IDisposable
                             type = "image_url",
                             image_url = new { url = $"data:{mimeType};base64,{base64Image}" }
                         },
-                        new
-                        {
-                            type = "text",
-                            text = @"Analyze this image carefully. Respond with ONLY valid JSON in this exact format, no other text:
-{
-  ""category"": ""singleword"",
-  ""description"": ""three.word.description""
-}
-
-Rules:
-- category: ONE word describing the main subject/theme (e.g. nature, food, people, animals, vehicles, architecture, sports, art)
-- description: EXACTLY three words joined with dots describing the specific scene (e.g. man.with.dog, kids.birthday.party, mountain.snow.sunset)
-- Use only lowercase letters and dots
-- Be specific but concise"
-                        }
+                        new { type = "text", text = promptText }
                     }
                 }
             },
@@ -126,8 +142,8 @@ Rules:
 
         var json = JsonConvert.SerializeObject(requestBody);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-
         var startTime = DateTime.UtcNow;
+
         var response = await _client.PostAsync($"{_baseUrl}/v1/chat/completions", content, cancellationToken);
         var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
 
@@ -140,15 +156,21 @@ Rules:
         var outputTokens = responseObj["usage"]?["completion_tokens"]?.Value<int>() ?? 0;
         var totalTokens = inputTokens + outputTokens;
 
-        // Parse the JSON response from the model
         string category = "unsorted";
         string description = "unknown.image.file";
 
         try
         {
-            // Use Regex to extract the JSON object even if the model includes conversational text
-            var jsonMatch = System.Text.RegularExpressions.Regex.Match(messageContent, @"\{.*\}", System.Text.RegularExpressions.RegexOptions.Singleline);
-            string cleanContent = jsonMatch.Success ? jsonMatch.Value : messageContent;
+            string cleanContent = messageContent;
+
+            // Safely extract JSON between { and } ignoring markdown wrappers like ```json
+            int startIdx = messageContent.IndexOf('{');
+            int endIdx = messageContent.LastIndexOf('}');
+
+            if (startIdx >= 0 && endIdx > startIdx)
+            {
+                cleanContent = messageContent.Substring(startIdx, (endIdx - startIdx) + 1);
+            }
 
             var parsed = JObject.Parse(cleanContent);
             category = SanitizeSingleWord(parsed["category"]?.ToString() ?? "unsorted");
@@ -156,7 +178,6 @@ Rules:
         }
         catch
         {
-            // Fallback: try to extract from raw text
             category = "unsorted";
             description = "unrecognized.image.file";
         }
@@ -180,14 +201,13 @@ Rules:
 
     private static string SanitizeThreeWords(string input)
     {
-        var parts = input.ToLower().Trim().Split(new[] { '.', ' ', '-', '_' },
-            StringSplitOptions.RemoveEmptyEntries);
+        var parts = input.ToLower().Trim().Split(
+            new[] { '.', ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
         var cleanParts = new System.Collections.Generic.List<string>();
         foreach (var p in parts)
         {
             var clean = System.Text.RegularExpressions.Regex.Replace(p, @"[^a-z0-9]", "");
-            if (!string.IsNullOrEmpty(clean))
-                cleanParts.Add(clean);
+            if (!string.IsNullOrEmpty(clean)) cleanParts.Add(clean);
             if (cleanParts.Count == 3) break;
         }
         while (cleanParts.Count < 3) cleanParts.Add("file");

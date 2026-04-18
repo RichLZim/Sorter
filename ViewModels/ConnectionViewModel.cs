@@ -1,91 +1,88 @@
 using System;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Sorter.Services;
 
 namespace Sorter.ViewModels;
 
-public class ConnectionViewModel : ViewModelBase
+public partial class ConnectionViewModel : ObservableObject, IDisposable
 {
     private readonly LmStudioService _lmService;
-    private readonly Action<string> _appendLog;
+    private readonly DispatcherTimer _heartbeat;
+    public Action<string>? OnLogMessage { get; set; }
 
-    private string _connectionState = "Disconnected";
-    public string ConnectionState
-    {
-        get => _connectionState;
-        set
-        {
-            if (RaiseAndSetIfChanged(ref _connectionState, value))
-                UpdateConnectionColor();
-        }
-    }
+    [ObservableProperty] private string _connectionState = "Disconnected";
+    [ObservableProperty] private string _connectionStatusText = "LMS SERVER: OFFLINE";
+    [ObservableProperty] private IBrush _connectionColor = Brushes.Gray;
+    [ObservableProperty] private string _serverButtonText = "START SERVER";
+    [ObservableProperty] private IBrush _serverButtonBackground = new SolidColorBrush(Color.Parse("#1A5C1A"));
 
-    private string _connectionStatusText = "LMS SERVER: OFFLINE";
-    public string ConnectionStatusText
-    {
-        get => _connectionStatusText;
-        set => RaiseAndSetIfChanged(ref _connectionStatusText, value);
-    }
+    private static readonly IBrush ServerOfflineBrush = new SolidColorBrush(Color.Parse("#1A5C1A"));
+    private static readonly IBrush ServerOnlineBrush = new SolidColorBrush(Color.Parse("#2EBD2E"));
 
-    private IBrush _connectionColor = Brushes.Gray;
-    public IBrush ConnectionColor
-    {
-        get => _connectionColor;
-        set => RaiseAndSetIfChanged(ref _connectionColor, value);
-    }
-
-    // These are kept in sync by MainViewModel whenever the user edits them.
     public string LmStudioUrl { get; set; } = "";
     public string ModelName { get; set; } = "";
 
-    public ICommand TestConnectionCommand { get; }
-
-    /// <param name="lmService">Shared LM Studio service.</param>
-    /// <param name="appendLog">Delegate from MainViewModel so test results appear in the activity log.</param>
-    public ConnectionViewModel(LmStudioService lmService, Action<string> appendLog)
+    public ConnectionViewModel(LmStudioService lmService)
     {
         _lmService = lmService;
-        _appendLog = appendLog;
-        TestConnectionCommand = new RelayCommand(async () => await ExecuteTestConnectionAsync());
+        _heartbeat = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _heartbeat.Tick += async (_, _) => await HeartbeatTickAsync();
+        _heartbeat.Start();
     }
 
-    private async Task ExecuteTestConnectionAsync()
+    // Auto-triggered by CommunityToolkit when ConnectionState changes
+    partial void OnConnectionStateChanged(string value)
+    {
+        ConnectionColor = value switch {
+            "Connected" => Brushes.Green,
+            "Refused" => Brushes.Red,
+            _ => Brushes.Gray
+        };
+        
+        if (value == "Connected") {
+            ServerButtonText = "SERVER STARTED";
+            ServerButtonBackground = ServerOnlineBrush;
+        } else {
+            ServerButtonText = "START SERVER";
+            ServerButtonBackground = ServerOfflineBrush;
+        }
+    }
+
+    [RelayCommand]
+    public async Task TestConnectionAsync()
     {
         ConnectionStatusText = "LM STUDIO: TESTING...";
         ConnectionState = "Disconnected";
-
-        // Always push the current URL/model into the service before testing.
         _lmService.UpdateSettings(LmStudioUrl, ModelName);
-
         var result = await _lmService.TestConnectionAsync();
+        ApplyConnectionResult(result.IsSuccess, result.Message, logResult: true);
+    }
 
-        if (result.IsSuccess)
-        {
+    private async Task HeartbeatTickAsync()
+    {
+        _lmService.UpdateSettings(LmStudioUrl, ModelName);
+        var result = await _lmService.TestConnectionAsync();
+        ApplyConnectionResult(result.IsSuccess, result.Message, logResult: false);
+    }
+
+    private void ApplyConnectionResult(bool isSuccess, string message, bool logResult)
+    {
+        if (isSuccess) {
             ConnectionState = "Connected";
             ConnectionStatusText = "LM STUDIO: CONNECTED";
-            _appendLog($"[OK] LM Studio connected at {LmStudioUrl}");
-        }
-        else
-        {
-            ConnectionState = result.Message.Contains("refused", StringComparison.OrdinalIgnoreCase) ||
-                              result.Message.Contains("connection failed", StringComparison.OrdinalIgnoreCase)
-                ? "Refused"
-                : "Disconnected";
-
+            if (logResult) OnLogMessage?.Invoke($"[OK] LM Studio connected at {LmStudioUrl}");
+        } else {
+            ConnectionState = message.Contains("refused", StringComparison.OrdinalIgnoreCase) ||
+                              message.Contains("connection failed", StringComparison.OrdinalIgnoreCase)
+                ? "Refused" : "Disconnected";
             ConnectionStatusText = $"LM STUDIO: {ConnectionState.ToUpper()}";
-            _appendLog($"[ERROR] Connection failed: {result.Message}");
+            if (logResult) OnLogMessage?.Invoke($"[ERROR] Connection failed: {message}");
         }
     }
 
-    private void UpdateConnectionColor()
-    {
-        ConnectionColor = ConnectionState switch
-        {
-            "Connected" => Brushes.Green,
-            "Refused"   => Brushes.Red,
-            _           => Brushes.Gray
-        };
-    }
+    public void Dispose() => _heartbeat.Stop();
 }

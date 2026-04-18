@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Sorter.ViewModels;
 
@@ -9,11 +10,13 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        var vm = new MainViewModel();
-        DataContext = vm;
-
-        // Give the ViewModel access to the folder picker dialog.
-        // We do this here (code-behind) because StorageProvider is a View concern.
-        Loaded += (_, _) => vm.StorageProvider = StorageProvider;
+        // Pass the StorageProvider to the ViewModel once the DataContext is injected
+        this.PropertyChanged += (s, e) =>
+        {
+            if (e.Property.Name == nameof(DataContext) && DataContext is MainViewModel vm)
+            {
+                vm.StorageProvider = StorageProvider;
+            }
+        };
     }
 }

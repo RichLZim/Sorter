@@ -9,7 +9,7 @@ namespace Sorter.Services;
 
 public static class DateExtractorService
 {
-    private const int MinYear = 1900;
+    private const int MinYear = 2001;
     private const int MaxYear = 2099;
 
     private static readonly string[] SupportedExtensions =
@@ -25,8 +25,18 @@ public static class DateExtractorService
     }
 
     /// <summary>
-    /// Returns the oldest date among EXIF date, file creation and file modified.
-    /// Returns null if no valid date is found in the MinYear–MaxYear range.
+    /// Returns the oldest date found across EXIF metadata, file creation time,
+    /// and file last-write time — but only if that date falls within
+    /// <see cref="MinYear"/>–<see cref="MaxYear"/> (2001–2099).
+    ///
+    /// Returns <c>null</c> when:
+    ///   • no date source can be read, OR
+    ///   • every date found is outside the accepted range.
+    ///
+    /// The out-of-range case is intentional: files whose only timestamps pre-date
+    /// 2001 (e.g. FAT32 default dates, clock-reset cameras, corrupted metadata)
+    /// are treated as undated so the caller can decide how to handle them
+    /// (skip via IgnoreNonDatedFiles, or fall back to "0000.00.00" in the name).
     /// </summary>
     public static DateTime? GetOldestDate(string filePath)
     {
@@ -36,7 +46,7 @@ public static class DateExtractorService
             TryGetFileDate(filePath, useCreated: true),
             TryGetFileDate(filePath, useCreated: false)
         }
-        .Where(d => d is { } dt && dt.Year >= MinYear && dt.Year <= MaxYear)
+        .Where(d => d.HasValue && d.Value.Year >= MinYear && d.Value.Year <= MaxYear)
         .Min();
     }
 
@@ -63,7 +73,7 @@ public static class DateExtractorService
             var subIfd = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
             if (subIfd != null)
             {
-                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt)) return dt;
+                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt))  return dt;
                 if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2)) return dt2;
             }
 
@@ -79,7 +89,13 @@ public static class DateExtractorService
         try
         {
             var info = new FileInfo(filePath);
-            return useCreated ? info.CreationTime : info.LastWriteTime;
+
+            // FileInfo.CreationTime / LastWriteTime can return DateTime.MinValue (year 1)
+            // on some file systems (FAT32, network shares, WSL mounts) when the timestamp
+            // is missing or unrepresentable. Guard here so these never reach GetOldestDate's
+            // range filter as a plausible-looking year-1 date.
+            var date = useCreated ? info.CreationTime : info.LastWriteTime;
+            return date == DateTime.MinValue ? null : date;
         }
         catch { }
         return null;

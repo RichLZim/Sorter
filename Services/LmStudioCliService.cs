@@ -1,27 +1,42 @@
 using System;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Sorter.Services;
 
 public class LmStudioCliService
 {
-    public void InstallModel(string modelName)
+    // Only allow alphanumeric, dash, and dot characters for model names to prevent command injection
+    private static readonly Regex ValidModelNameRegex = new(@"^[a-zA-Z0-9\-\.]+$", RegexOptions.Compiled);
+
+    public async Task InstallModelAsync(string modelName)
     {
-        RunPowerShell($"-Command \"npx lmstudio install-cli; lms get {modelName}\"");
+        ValidateModelName(modelName);
+        await RunPowerShellAsync($"-Command \"npx lmstudio install-cli; lms get {modelName}\"");
     }
 
-    public Task LoadServerAsync(string modelName)
+    public async Task LoadServerAsync(string modelName)
     {
-        return Task.Run(() => RunPowerShell($"-Command \"lms load {modelName}; Start-Sleep -s 1; lms server start\""));
+        ValidateModelName(modelName);
+        await RunPowerShellAsync($"-Command \"lms load {modelName}; Start-Sleep -s 1; lms server start\"");
     }
 
-    public void UnloadModel(string modelName)
+    public async Task UnloadModelAsync(string modelName)
     {
-        RunPowerShell($"-Command \"lms unload \"");
+        ValidateModelName(modelName);
+        await RunPowerShellAsync($"-Command \"lms unload {modelName}\"");
     }
 
-    private void RunPowerShell(string arguments)
+    private static void ValidateModelName(string modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName) || !ValidModelNameRegex.IsMatch(modelName))
+        {
+            throw new ArgumentException($"Invalid model name format: {modelName}. Security exception prevented execution.");
+        }
+    }
+
+    private async Task RunPowerShellAsync(string arguments)
     {
         var psi = new ProcessStartInfo
         {
@@ -30,6 +45,11 @@ public class LmStudioCliService
             UseShellExecute = true,
             Arguments = arguments
         };
-        Process.Start(psi)?.WaitForExit();
+
+        using var process = Process.Start(psi);
+        if (process != null)
+        {
+            await process.WaitForExitAsync();
+        }
     }
 }
