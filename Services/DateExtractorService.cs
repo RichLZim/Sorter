@@ -12,6 +12,10 @@ public static class DateExtractorService
     private const int MinYear = 2001;
     private const int MaxYear = 2099;
 
+    // All extensions the application accepts as processable images.
+    // NOTE: EXIF metadata is only read for JPEG and PNG (see TryGetExifDate).
+    //       GIF, WebP, and WebM are included here because they are valid image
+    //       files — they just fall through to file-system timestamps only.
     private static readonly string[] SupportedExtensions =
         [".jpg", ".jpeg", ".png", ".gif", ".webm", ".webp"];
 
@@ -37,6 +41,11 @@ public static class DateExtractorService
     /// 2001 (e.g. FAT32 default dates, clock-reset cameras, corrupted metadata)
     /// are treated as undated so the caller can decide how to handle them
     /// (skip via IgnoreNonDatedFiles, or fall back to "0000.00.00" in the name).
+    ///
+    /// Platform note: on Linux and macOS, FileInfo.CreationTime returns
+    /// LastWriteTime (the kernel does not track birth time on most filesystems).
+    /// Both timestamps are still checked so the min() logic is correct, but
+    /// they will often be identical on Unix.
     /// </summary>
     public static DateTime? GetOldestDate(string filePath)
     {
@@ -50,15 +59,19 @@ public static class DateExtractorService
         .Min();
     }
 
-    /// <summary>
-    /// Returns true if the filename contains a year in the 2001–2099 range.
-    /// </summary>
+    /// <summary>Returns true if the filename contains a year in the 2001–2099 range.</summary>
     public static bool FileNameContainsYear(string filePath)
     {
         var name = Path.GetFileNameWithoutExtension(filePath);
         return YearRegex.IsMatch(name);
     }
 
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads EXIF date tags. Only JPEG and PNG embed EXIF data in a way
+    /// MetadataExtractor can reliably parse — all other formats return null.
+    /// </summary>
     private static DateTime? TryGetExifDate(string filePath)
     {
         try
@@ -69,18 +82,21 @@ public static class DateExtractorService
 
             var directories = ImageMetadataReader.ReadMetadata(filePath);
 
-            // Check SubIFD first (more specific), then IFD0 (general)
+            // Check SubIFD first (more specific: original capture time),
+            // then IFD0 (general: may reflect editing/processing time).
             var subIfd = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
-            if (subIfd != null)
+            if (subIfd is not null)
             {
-                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt))  return dt;
+                if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal,  out var dt))  return dt;
                 if (subIfd.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out var dt2)) return dt2;
             }
 
             var ifd0 = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
-            if (ifd0 != null && ifd0.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt3)) return dt3;
+            if (ifd0 is not null && ifd0.TryGetDateTime(ExifDirectoryBase.TagDateTime, out var dt3))
+                return dt3;
         }
-        catch { }
+        catch { /* corrupt / unreadable metadata — fall through */ }
+
         return null;
     }
 
@@ -98,6 +114,7 @@ public static class DateExtractorService
             return date == DateTime.MinValue ? null : date;
         }
         catch { }
+
         return null;
     }
 }

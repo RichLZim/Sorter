@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace Sorter.Models;
 
 public class SorterSettings
@@ -15,9 +13,7 @@ public class SorterSettings
     public bool   UseGpu              { get; set; } = false;
     public bool   UseCustomPrompt     { get; set; } = false;
     public string CustomPrompt        { get; set; } = "";
-    
-    // --> This is the missing property the compiler is looking for! <--
-    public bool   UseVrcPreset        { get; set; } = false; 
+    public bool   UseVrcPreset        { get; set; } = false;
 }
 
 public class FileProcessResult

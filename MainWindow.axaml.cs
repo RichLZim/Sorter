@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 using Sorter.ViewModels;
 
@@ -10,13 +9,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Pass the StorageProvider to the ViewModel once the DataContext is injected
-        this.PropertyChanged += (s, e) =>
+        // Pass the StorageProvider to the ViewModel once the DataContext is injected.
+        this.PropertyChanged += (_, e) =>
         {
             if (e.Property.Name == nameof(DataContext) && DataContext is MainViewModel vm)
-            {
                 vm.StorageProvider = StorageProvider;
-            }
         };
     }
 }

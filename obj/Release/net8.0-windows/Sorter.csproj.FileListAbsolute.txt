@@ -68,3 +68,6 @@ D:\Desktop\Sorter\obj\Release\net8.0-windows\ref\Sorter.dll
 D:\Desktop\Sorter\bin\Release\net8.0-windows\CommunityToolkit.Mvvm.dll
 D:\Desktop\Sorter\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.dll
 D:\Desktop\Sorter\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+D:\Desktop\Sorter\obj\Release\net8.0-windows\Sorter.dll
+D:\Desktop\Sorter\obj\Release\net8.0-windows\refint\Sorter.dll
+D:\Desktop\Sorter\obj\Release\net8.0-windows\Sorter.pdb

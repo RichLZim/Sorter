@@ -1,6 +1,6 @@
+using System;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
-using System;
 
 namespace Sorter.ViewModels;
 
@@ -12,16 +12,16 @@ public partial class ImagePreviewViewModel : ObservableObject, IDisposable
 
     public bool HasImage => CurrentImageSource is not null;
 
-    // Safe disposal method to prevent unmanaged memory leaks
+    /// <summary>
+    /// Swaps in a new bitmap and disposes the previous one to free unmanaged memory.
+    /// Pass <c>null</c> to clear the preview.
+    /// </summary>
     public void UpdateImage(Bitmap? newImage)
     {
-        var oldImage = CurrentImageSource;
+        var old = CurrentImageSource;
         CurrentImageSource = newImage;
-        oldImage?.Dispose(); 
+        old?.Dispose();
     }
 
-    public void Dispose()
-    {
-        CurrentImageSource?.Dispose();
-    }
+    public void Dispose() => UpdateImage(null);
 }

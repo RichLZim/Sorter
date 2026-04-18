@@ -1,63 +1,44 @@
+using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Sorter.Services;
 using Sorter.ViewModels;
-using System;
 
 namespace Sorter;
 
 public partial class App : Application
 {
-    public static new App Current => (App)Application.Current!;
     public IServiceProvider Services { get; private set; } = null!;
 
-    public override void Initialize()
-    {
-        AvaloniaXamlLoader.Load(this);
-    }
+    public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
         var services = new ServiceCollection();
 
-        // 1. Register ViewModels
-        services.AddSingleton<SettingsViewModel>();
-        services.AddTransient<ConnectionViewModel>();
-        services.AddTransient<SortingProgressViewModel>();
-        services.AddTransient<ImagePreviewViewModel>();
-        services.AddTransient<MainViewModel>();
+        // Infrastructure
+        services.AddSingleton<IFileSystemService, FileSystemService>();
+        services.AddSingleton<IFileClassificationService, FileClassificationService>();
+        services.AddSingleton<IImageService, ImageService>();
 
-        // 2. Register Services
-        services.AddSingleton<LmStudioCliService>();
+        // Business logic
         services.AddSingleton<FileSorterService>();
+        services.AddSingleton<LmStudioCliService>();
+        services.AddHttpClient<LmStudioService>();
 
-        // FIX: Tell DI exactly how to build LmStudioService using the saved settings!
-        services.AddSingleton<LmStudioService>(sp => 
-        {
-            var settings = sp.GetRequiredService<SettingsViewModel>();
-            return new LmStudioService(settings.LmStudioUrl, settings.ModelName);
-        });
+        // View models
+        services.AddSingleton<MainViewModel>();
 
         Services = services.BuildServiceProvider();
 
-        try
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = new MainWindow
             {
-                // Resolve the MainViewModel via DI
-                desktop.MainWindow = new MainWindow
-                {
-                    DataContext = Services.GetRequiredService<MainViewModel>()
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            // If the app ever fails to start, it will write the error to your Output window
-            System.Diagnostics.Debug.WriteLine($"CRITICAL STARTUP ERROR: {ex.Message}");
-            throw;
+                DataContext = Services.GetRequiredService<MainViewModel>()
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
