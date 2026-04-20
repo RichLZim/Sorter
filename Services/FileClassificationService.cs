@@ -6,7 +6,6 @@ public class FileClassificationService : IFileClassificationService
 {
     public string DetermineTargetFolder(string filePath)
     {
-        // Path.GetExtension never throws on a non-null string, so no try/catch needed.
         return Path.GetExtension(filePath).ToLowerInvariant() switch
         {
             ".jpg" or ".jpeg" or ".png"  => "Images",

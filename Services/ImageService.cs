@@ -3,26 +3,18 @@ using Avalonia.Media.Imaging;
 
 namespace Sorter.Services;
 
-/// <summary>
-/// Loads a bitmap from disk. Reads all bytes first so the file handle is
-/// released immediately — prevents lock contention during concurrent move operations.
-/// </summary>
 public class ImageService : IImageService
 {
     public Bitmap? Load(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return null;
-
         try
         {
             var bytes = File.ReadAllBytes(path);
             using var ms = new MemoryStream(bytes);
             return new Bitmap(ms);
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 }

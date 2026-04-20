@@ -174,4 +174,69 @@
         <Setter Property="Height" Value="1"/>
     </Style>
 
+
+    <!-- ── Backend selector buttons ── -->
+    <!-- Active state: bright green -->
+    <Style Selector="Button.BackendActive">
+        <Setter Property="Background"   Value="#1E5C1E"/>
+        <Setter Property="Foreground"   Value="#80FF80"/>
+        <Setter Property="BorderBrush"  Value="#40A040"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontFamily"   Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize"     Value="11"/>
+        <Setter Property="Cursor"       Value="Hand"/>
+    </Style>
+
+    <!-- Idle / not-installed state: dim grey with a subtle pulse animation -->
+    <Style Selector="Button.BackendIdle">
+        <Setter Property="Background"   Value="#181E18"/>
+        <Setter Property="Foreground"   Value="#4A5A4A"/>
+        <Setter Property="BorderBrush"  Value="#252D25"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontFamily"   Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize"     Value="11"/>
+        <Setter Property="Cursor"       Value="Hand"/>
+        <Style.Animations>
+            <Animation Duration="0:0:1.6" IterationCount="Infinite" PlaybackDirection="Alternate">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="0.55"/>
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="1.0"/>
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+
+    <!-- Custom button (always visible, purple tint) -->
+    <Style Selector="Button.BackendCustomActive">
+        <Setter Property="Background"   Value="#22184A"/>
+        <Setter Property="Foreground"   Value="#B090FF"/>
+        <Setter Property="BorderBrush"  Value="#5040A0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontFamily"   Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize"     Value="11"/>
+        <Setter Property="Cursor"       Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.BackendCustomIdle">
+        <Setter Property="Background"   Value="#12101E"/>
+        <Setter Property="Foreground"   Value="#5848A0"/>
+        <Setter Property="BorderBrush"  Value="#201C3A"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="FontFamily"   Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize"     Value="11"/>
+        <Setter Property="Cursor"       Value="Hand"/>
+        <Style.Animations>
+            <Animation Duration="0:0:1.6" IterationCount="Infinite" PlaybackDirection="Alternate">
+                <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.5"/></KeyFrame>
+                <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+
 </Styles>

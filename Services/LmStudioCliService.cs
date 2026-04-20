@@ -8,19 +8,16 @@ namespace Sorter.Services;
 
 /// <summary>
 /// Wraps LM Studio CLI operations (install, load, unload, stop).
-///
-/// On Windows:  runs via powershell.exe with UAC elevation (runas).
-/// On macOS/Linux: runs via a login shell (sh -l -c) so PATH is populated
-///   the same as an interactive terminal — no elevation is attempted.
-///
-/// All model names are validated against an allowlist regex before use to
-/// prevent shell injection.
+/// On Windows: powershell.exe — elevation requested but gracefully handled if denied.
+/// On macOS/Linux: /bin/sh login shell.
 /// </summary>
 public class LmStudioCliService
 {
-    // Only alphanumeric, hyphen, and dot — prevents shell injection
     private static readonly Regex ValidModelNameRegex =
-        new(@"^[a-zA-Z0-9\-\.]+$", RegexOptions.Compiled);
+        new(@"^[a-zA-Z0-9\-\._/]+$", RegexOptions.Compiled);
+
+    public event Action<string>? OnLog;
+    public event Action<string>? OnError;
 
     public Task InstallModelAsync(string modelName)
     {
@@ -43,52 +40,73 @@ public class LmStudioCliService
     public Task StopServerAsync()
         => RunShellAsync("lms server stop");
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Stops any running LM Studio server and unloads all models,
+    /// then loads the specified model and starts the server fresh.
+    /// Used by the "Limit Server" enforcement feature.
+    /// </summary>
+    public Task EnforceSingleServerAsync(string modelName)
+    {
+        ValidateModelName(modelName);
+        // Stop server, unload everything, then reload the chosen model
+        return RunShellAsync(
+            $"lms server stop && lms unload --all && sleep 1 && lms load {modelName} && lms server start");
+    }
 
     private static void ValidateModelName(string modelName)
     {
         if (string.IsNullOrWhiteSpace(modelName) || !ValidModelNameRegex.IsMatch(modelName))
             throw new ArgumentException(
-                $"Invalid model name: '{modelName}'. Only alphanumeric, '-' and '.' are allowed.");
+                $"Invalid model name: '{modelName}'. Allowed: alphanumeric, - . _ /");
     }
 
-    /// <summary>
-    /// Runs a shell command cross-platform.
-    /// Windows: powershell.exe with UAC elevation, && replaced with semicolons,
-    ///          sleep replaced with Start-Sleep.
-    /// Unix: /bin/sh -l -c (login shell so PATH includes nvm/homebrew/etc.)
-    /// </summary>
-    private static async Task RunShellAsync(string command)
+   private async Task RunShellAsync(string command)
     {
-        ProcessStartInfo psi;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        // FIX: Invoke the unused event so it feeds into the UI Activity Log
+        OnLog?.Invoke($"[Shell] Executing: {command}"); 
+        
+        try
         {
-            // Translate Bash idioms to PowerShell
-            var psCommand = command
-                .Replace("&&", ";")
-                .Replace("sleep 1", "Start-Sleep -s 1");
+            ProcessStartInfo psi;
 
-            psi = new ProcessStartInfo
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                FileName        = "powershell.exe",
-                Arguments       = $"-Command \"{psCommand}\"",
-                Verb            = "runas",
-                UseShellExecute = true,
-            };
+                var psCommand = command
+                    .Replace("&&", ";")
+                    .Replace("sleep 1", "Start-Sleep -s 1");
+
+                psi = new ProcessStartInfo
+                {
+                    FileName        = "powershell.exe",
+                    Arguments       = $"-NoProfile -Command \"{psCommand}\"",
+                    UseShellExecute = true,
+                };
+            }
+            else
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName        = "/bin/sh",
+                    Arguments       = $"-l -c \"{command}\"",
+                    UseShellExecute = false,
+                };
+            }
+
+            using var process = Process.Start(psi);
+            if (process is not null)
+                await process.WaitForExitAsync();
         }
-        else
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            psi = new ProcessStartInfo
-            {
-                FileName        = "/bin/sh",
-                Arguments       = $"-l -c \"{command}\"",
-                UseShellExecute = false,
-            };
+            OnError?.Invoke("[Shell] Operation cancelled: UAC elevation was denied by the user.");
         }
-
-        using var process = Process.Start(psi);
-        if (process is not null)
-            await process.WaitForExitAsync();
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
+        {
+            OnError?.Invoke("[Shell] Access denied. Try running Sorter as Administrator.");
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"[Shell] Failed to run command: {ex.Message}");
+        }
     }
 }

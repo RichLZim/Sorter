@@ -5,31 +5,145 @@
         x:Class="Sorter.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Sorterz — AI Image Organizer"
-        Width="1200" Height="720"
-        MinWidth="1000" MinHeight="600"
+        Width="1200" Height="740"
+        MinWidth="1000" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="#0D0F14"
         Icon="/Assets/Icon.ico">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <!-- ═══ HEADER ═══ -->
+        <!-- ═══ HEADER ROW 1: Logo + Backend Switcher + GitHub/Settings ═══ -->
         <Border Grid.Row="0" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto" Margin="20,14">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,10">
+
+                <!-- Left: logo + title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <Image Source="/Assets/logo64.png" Height="32" Width="32"/>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="SORTER" Classes="Heading" FontSize="20"/>
-                        <TextBlock Text="AI-POWERED IMAGE ORGANIZER" Classes="Label" FontSize="11" Margin="0,1,0,0"/>
+                        <TextBlock Text="AI-POWERED IMAGE ORGANIZER" Classes="Label" FontSize="10" Margin="0,1,0,0"/>
                     </StackPanel>
+                </StackPanel>
+
+                <!-- Center: backend selector buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                    <!-- LM Studio button:
+                         BackendActive   = selected
+                         BackendIdle     = not selected, not installed (pulses grey→green)
+                         When detected+selected: BackendActive
+                         When detected+not selected: BackendIdle (no pulse - override in code via Classes)
+                    -->
+                    <Button Command="{Binding SelectLmStudioCommand}"
+                            Classes.BackendActive="{Binding Settings.IsLmStudioSelected}"
+                            Classes.BackendIdle="{Binding Settings.IsLmStudioSelected, Converter={x:Static conv:BoolConverters.Not}}"
+                            MinWidth="130" Padding="12,7"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Use LM Studio (local). Click to install if not found.">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="8" Height="8"
+                                     Fill="{Binding Settings.LmStudioDetected, 
+                                        Converter={x:Static conv:BoolConverters.Not},
+                                        ConverterParameter=Green}"/>
+                            <TextBlock Text="LM STUDIO" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Ollama button -->
+                    <Button Command="{Binding SelectOllamaCommand}"
+                            Classes.BackendActive="{Binding Settings.IsOllamaSelected}"
+                            Classes.BackendIdle="{Binding Settings.IsOllamaSelected, Converter={x:Static conv:BoolConverters.Not}}"
+                            MinWidth="120" Padding="12,7"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Use Ollama (local). Click to install if not found.">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="8" Height="8"
+                                     Fill="{Binding Settings.OllamaDetected,
+                                        Converter={x:Static conv:BoolConverters.Not},
+                                        ConverterParameter=Green}"/>
+                            <TextBlock Text="OLLAMA" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Custom button -->
+                    <Button Command="{Binding SelectCustomCommand}"
+                            Classes.BackendCustomActive="{Binding Settings.IsCustomSelected}"
+                            Classes.BackendCustomIdle="{Binding Settings.IsCustomSelected, Converter={x:Static conv:BoolConverters.Not}}"
+                            MinWidth="110" Padding="12,7"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Use a custom/external API endpoint">
+                        <TextBlock Text="CUSTOM" VerticalAlignment="Center"/>
+                    </Button>
+
+                </StackPanel>
+
+                <!-- Right: GitHub + Settings folder + Reload -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+
+                    <!-- GitHub -->
+                    <Button Classes="Secondary" Padding="7,6" ToolTip.Tip="View on GitHub"
+                            Command="{Binding OpenGitHubCommand}">
+                        <Canvas Width="16" Height="16">
+                            <Path Fill="#C8D0DC"
+                                  Data="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                                        0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                                        -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                                        .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                                        -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+                                        .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+                                        .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+                                        0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8
+                                        C16 3.58 12.42 0 8 0z"/>
+                        </Canvas>
+                    </Button>
+
+                    <!-- Open settings folder (cogwheel) -->
+                    <Button Classes="Secondary" Padding="7,6" ToolTip.Tip="Open settings folder"
+                            Command="{Binding OpenSettingsFolderCommand}">
+                        <Canvas Width="16" Height="16">
+                            <Path Fill="#C8D0DC"
+                                  Data="M8 5a3 3 0 1 0 0 6A3 3 0 0 0 8 5zm0 1a2 2 0 1 1 0 4A2 2 0 0 1 8 6z
+                                        M8 0a.5.5 0 0 1 .5.5v1.07A5.5 5.5 0 0 1 13 6.5V8h1.5a.5.5 0 0 1 0 1H13v1.5
+                                        A5.5 5.5 0 0 1 8.5 14.43V15.5a.5.5 0 0 1-1 0v-1.07A5.5 5.5 0 0 1 3 9.5V8H1.5
+                                        a.5.5 0 0 1 0-1H3V5.5A5.5 5.5 0 0 1 7.5 1.07V.5A.5.5 0 0 1 8 0zm0 2
+                                        a4.5 4.5 0 0 0-4.5 4.5v3a4.5 4.5 0 0 0 9 0v-3A4.5 4.5 0 0 0 8 2z"/>
+                        </Canvas>
+                    </Button>
+
+                    <!-- Reload settings -->
+                    <Button Classes="Secondary" Padding="7,6" ToolTip.Tip="Reload settings from disk"
+                            Command="{Binding ReloadSettingsCommand}">
+                        <Canvas Width="16" Height="16">
+                            <Path Fill="#C8D0DC"
+                                  Data="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z
+                                        M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384
+                                        L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </Canvas>
+                    </Button>
+
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ═══ MAIN CONTENT ═══ -->
-        <Grid Grid.Row="1" ColumnDefinitions="300,*,300">
+        <!-- ═══ BACKEND STATUS BAR ═══ -->
+        <Border Grid.Row="1" Background="#08090D" BorderBrush="#1E2430" BorderThickness="0,0,0,1" Padding="16,5">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Ellipse Width="7" Height="7" Fill="{Binding Connection.ConnectionColor}" VerticalAlignment="Center"/>
+                <TextBlock Classes="Status" FontSize="10" Text="{Binding Connection.ConnectionStatusText}"/>
+                <TextBlock Classes="Status" FontSize="10" Text="|" Margin="4,0"/>
+                <TextBlock Classes="Status" FontSize="10">
+                    <Run Text="BACKEND: "/>
+                    <Run Text="{Binding Settings.ActiveBackend}"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
 
-            <!-- ═══ LEFT PANEL: CONTROLS ═══ -->
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <Grid Grid.Row="2" ColumnDefinitions="300,*,300">
+
+            <!-- ═══ LEFT PANEL ═══ -->
             <Border Grid.Column="0" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16" Spacing="14">
@@ -59,16 +173,16 @@
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="RENAME OPTIONS" Classes="Label"/>
-                                <StackPanel Spacing="6">
-                                    <CheckBox IsChecked="{Binding Settings.UsePrefix}" Content="Use Prefix on Rename"/>
-                                    <StackPanel Spacing="4" IsVisible="{Binding Settings.UsePrefix}">
-                                        <TextBlock Text="PREFIX (max 8 chars)" Classes="Label" FontSize="10"/>
-                                        <TextBox Text="{Binding Settings.Prefix}" MaxLength="8" Watermark="IMG"/>
-                                        <TextBlock Text="Format: PREFIX.YEAR.MM.DD.three.word.desc.ext" Classes="Status" FontSize="10" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <TextBlock Text="Format: YEAR.MM.DD.three.word.desc.ext" Classes="Status" FontSize="10" TextWrapping="Wrap"
-                                               IsVisible="{Binding Settings.UsePrefix, Converter={x:Static conv:BoolConverters.Not}}"/>
+                                <CheckBox IsChecked="{Binding Settings.UsePrefix}" Content="Use Prefix on Rename"/>
+                                <StackPanel Spacing="4" IsVisible="{Binding Settings.UsePrefix}">
+                                    <TextBlock Text="PREFIX (max 8 chars)" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding Settings.Prefix}" MaxLength="8" Watermark="IMG"/>
+                                    <TextBlock Text="Format: PREFIX.YEAR.MM.DD.three.word.desc.ext"
+                                               Classes="Status" FontSize="10" TextWrapping="Wrap"/>
                                 </StackPanel>
+                                <TextBlock Text="Format: YEAR.MM.DD.three.word.desc.ext"
+                                           Classes="Status" FontSize="10" TextWrapping="Wrap"
+                                           IsVisible="{Binding Settings.UsePrefix, Converter={x:Static conv:BoolConverters.Not}}"/>
                             </StackPanel>
                         </Border>
 
@@ -76,8 +190,18 @@
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="FILTER OPTIONS" Classes="Label"/>
+
                                 <CheckBox IsChecked="{Binding Settings.IgnoreNonDatedFiles}" Content="Ignore non-dated files"/>
-                                <TextBlock Text="Skips files with no date in 2001–2099 range" Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="Skips files with no date in 2001–2099 range"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,6" TextWrapping="Wrap"/>
+
+                                <CheckBox IsChecked="{Binding Settings.UseSubfolders}" Content="Sort into description subfolders"/>
+                                <TextBlock Text="AI creates a subfolder per image description"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,6" TextWrapping="Wrap"/>
+
+                                <CheckBox IsChecked="{Binding Settings.EraseExif}" Content="Erase existing EXIF data"/>
+                                <TextBlock Text="Strips EXIF metadata from JPEG files before moving"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
@@ -85,27 +209,37 @@
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="CURRENT IMAGE PREVIEW" Classes="Label"/>
-                                <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="4" ClipToBounds="True" Height="250" Background="#1A1C23">
+                                <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="4"
+                                        ClipToBounds="True" Height="220" Background="#1A1C23">
                                     <Panel>
-                                        <TextBlock Text="No Image Loaded" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#444444" FontSize="11"
+                                        <TextBlock Text="No Image Loaded"
+                                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                   Foreground="#444444" FontSize="11"
                                                    IsVisible="{Binding Preview.HasImage, Converter={x:Static conv:BoolConverters.Not}}"/>
                                         <Image Source="{Binding Preview.CurrentImageSource}" Stretch="Uniform"/>
                                     </Panel>
                                 </Border>
                             </StackPanel>
                         </Border>
+
                     </StackPanel>
                 </ScrollViewer>
             </Border>
 
-            <!-- ═══ MIDDLE PANEL: PROMPT + LOG + RESULTS ═══ -->
+            <!-- ═══ MIDDLE PANEL ═══ -->
             <Grid Grid.Column="1" RowDefinitions="160,4,*,Auto,180">
+
+                <!-- CUSTOM PROMPT -->
                 <Border Grid.Row="0" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,0,0,1">
                     <Grid RowDefinitions="Auto,*">
                         <Border Classes="SectionHeader" Grid.Row="0">
                             <Grid ColumnDefinitions="Auto,15,Auto,*,Auto">
-                                <CheckBox Grid.Column="0" IsChecked="{Binding Settings.UseCustomPrompt}" Content="CUSTOM PROMPT" FontFamily="Consolas,'Courier New',monospace" FontSize="11" Foreground="#6A7888" VerticalAlignment="Center"/>
-                                <CheckBox Grid.Column="2" IsChecked="{Binding Settings.UseVrcPreset}" Content="VRCHAT PRESET" FontFamily="Consolas,'Courier New',monospace" FontSize="11" Foreground="#9A70D0" VerticalAlignment="Center">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding Settings.UseCustomPrompt}"
+                                          Content="CUSTOM PROMPT" FontFamily="Consolas,'Courier New',monospace"
+                                          FontSize="11" Foreground="#6A7888" VerticalAlignment="Center"/>
+                                <CheckBox Grid.Column="2" IsChecked="{Binding Settings.UseVrcPreset}"
+                                          Content="VRCHAT PRESET" FontFamily="Consolas,'Courier New',monospace"
+                                          FontSize="11" Foreground="#9A70D0" VerticalAlignment="Center">
                                     <CheckBox.Styles>
                                         <Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
                                             <Setter Property="Background" Value="#9A70D0"/>
@@ -113,47 +247,65 @@
                                         </Style>
                                     </CheckBox.Styles>
                                 </CheckBox>
-                                <TextBlock Grid.Column="4" Text="(default shown when off)" Classes="Status" FontSize="10" VerticalAlignment="Center" IsVisible="{Binding Settings.IsDefaultPromptActive}"/>
+                                <TextBlock Grid.Column="4" Text="(default shown when off)"
+                                           Classes="Status" FontSize="10" VerticalAlignment="Center"
+                                           IsVisible="{Binding Settings.IsDefaultPromptActive}"/>
                             </Grid>
                         </Border>
                         <Panel Grid.Row="1">
-                            <TextBox Text="{Binding Settings.ActivePromptText, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" IsEnabled="{Binding Settings.UseCustomPrompt}" ScrollViewer.VerticalScrollBarVisibility="Auto" Background="#0A0C10" Foreground="#C8D0DC" BorderThickness="0" Padding="12,8" FontSize="11" FontFamily="Consolas,'Courier New',monospace"/>
-                            <Border Background="#0A0C10" Opacity="0.65" IsHitTestVisible="False" IsVisible="{Binding Settings.UseCustomPrompt, Converter={x:Static conv:BoolConverters.Not}}"/>
+                            <TextBox Text="{Binding Settings.ActivePromptText, Mode=TwoWay}"
+                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     IsEnabled="{Binding Settings.UseCustomPrompt}"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     Background="#0A0C10" Foreground="#C8D0DC"
+                                     BorderThickness="0" Padding="12,8"
+                                     FontSize="11" FontFamily="Consolas,'Courier New',monospace"/>
+                            <Border Background="#0A0C10" Opacity="0.65" IsHitTestVisible="False"
+                                    IsVisible="{Binding Settings.UseCustomPrompt, Converter={x:Static conv:BoolConverters.Not}}"/>
                         </Panel>
                     </Grid>
                 </Border>
 
-                <GridSplitter Grid.Row="1" ResizeDirection="Rows" Background="#1E2430" HorizontalAlignment="Stretch" Height="4"/>
+                <GridSplitter Grid.Row="1" ResizeDirection="Rows" Background="#1E2430"
+                              HorizontalAlignment="Stretch" Height="4"/>
 
+                <!-- ACTIVITY LOG -->
                 <Border Grid.Row="2" Background="#0A0C10">
                     <Grid RowDefinitions="Auto,*">
                         <Border Classes="SectionHeader" Grid.Row="0">
                             <Grid ColumnDefinitions="*,Auto,Auto">
-                                <TextBlock Text="ACTIVITY LOG" Classes="Label" VerticalAlignment="Center" Grid.Column="0"/>
-                                <Button Grid.Column="1" Content="CLEAR" Classes="Secondary" Padding="8,3" FontSize="11" Command="{Binding ClearLogCommand}" Margin="0,0,5,0"/>
-                                <Button Grid.Column="2" Content="RESET SETTINGS" Classes="Secondary" Padding="8,3" FontSize="11" Command="{Binding ResetSettingsCommand}"/>
+                                <TextBlock Text="ACTIVITY LOG" Classes="Label" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="CLEAR" Classes="Secondary"
+                                        Padding="8,3" FontSize="11" Command="{Binding ClearLogCommand}" Margin="0,0,5,0"/>
+                                <Button Grid.Column="2" Content="RESET SETTINGS" Classes="Secondary"
+                                        Padding="8,3" FontSize="11" Command="{Binding ResetSettingsCommand}"/>
                             </Grid>
                         </Border>
-                        <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                        <ScrollViewer Grid.Row="1" x:Name="LogScrollViewer"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                             <ListBox ItemsSource="{Binding Progress.LogEntries}" Background="Transparent" BorderThickness="0" Margin="0"/>
                         </ScrollViewer>
                     </Grid>
                 </Border>
 
+                <!-- PROGRESS BAR -->
                 <Border Grid.Row="3" Background="#0D0F14" Padding="16,8">
                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                        <ProgressBar Grid.Row="0" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Value="{Binding Progress.ProgressValue}" Height="6" Margin="0,0,0,4"/>
+                        <ProgressBar Grid.Row="0" Grid.ColumnSpan="2" Minimum="0" Maximum="100"
+                                     Value="{Binding Progress.ProgressValue}" Height="6" Margin="0,0,0,4"/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Progress.StatusText}" Classes="Status" FontSize="11"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Progress.ProgressText}" Classes="Value" FontSize="11"/>
                     </Grid>
                 </Border>
 
+                <!-- PROCESSED FILES -->
                 <Border Grid.Row="4" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0">
                     <Grid RowDefinitions="Auto,*">
                         <Border Classes="SectionHeader" Grid.Row="0">
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="PROCESSED FILES" Classes="Label" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding Progress.ResultCountText}" Grid.Column="1" Classes="Value" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock Text="{Binding Progress.ResultCountText}" Grid.Column="1"
+                                           Classes="Value" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
                             </Grid>
                         </Border>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
@@ -163,90 +315,171 @@
                 </Border>
             </Grid>
 
-            <!-- ═══ RIGHT PANEL: LLM MODULE SETTINGS ═══ -->
+            <!-- ═══ RIGHT PANEL ═══ -->
             <Border Grid.Column="2" Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="1,0,0,1">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16" Spacing="14">
+
+                        <!-- CONNECTION -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="CONNECTION" Classes="Label"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Ellipse Width="10" Height="10" Fill="{Binding Connection.ConnectionColor}"/>
-                                    <TextBlock Text="{Binding Connection.ConnectionStatusText}" Classes="Label" FontSize="10"/>
-                                </StackPanel>
-                                <Button Content="TEST CONNECTION" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding TestConnectionCommand}"/>
+                                <Button Content="TEST CONNECTION" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center" Command="{Binding TestConnectionCommand}"/>
                             </StackPanel>
                         </Border>
 
+                        <!-- SERVER CONTROL -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="SERVER CONTROL" Classes="Label"/>
-                                <Button Content="{Binding Connection.ServerButtonText}" Background="{Binding Connection.ServerButtonBackground}" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding LoadLmStudioCommand}"/>
-                                <Button Content="STOP SERVER" Classes="Danger" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StopServerCommand}"/>
+                                <Button Content="{Binding Connection.ServerButtonText}"
+                                        Background="{Binding Connection.ServerButtonBackground}"
+                                        Foreground="White" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center" Command="{Binding LoadLmStudioCommand}"/>
+                                <Button Content="STOP SERVER" Classes="Danger"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding StopServerCommand}"/>
+                                <CheckBox IsChecked="{Binding Settings.LimitServer}"
+                                          Content="LIMIT SERVER"
+                                          ToolTip.Tip="Ensures only one LLM server is active. When checked, stops all other running LLMs and starts only the currently selected model on the selected backend."/>
+                                <TextBlock Text="Stops all other LLMs; runs only your selected model"
+                                           Classes="Status" FontSize="9" Margin="24,0,0,0" TextWrapping="Wrap"
+                                           IsVisible="{Binding Settings.LimitServer}"/>
                             </StackPanel>
                         </Border>
 
+                        <!-- MODEL SELECTION -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="MODEL SELECTION" Classes="Label"/>
-                                <ComboBox SelectedItem="{Binding Settings.SelectedModel}" ItemsSource="{Binding Settings.AvailableModels}" HorizontalAlignment="Stretch" FontSize="11" Background="#161A22" Foreground="#E8C55A">
-                                    <ComboBox.Styles>
-                                        <Style Selector="ComboBoxItem">
-                                            <Setter Property="Foreground" Value="#C8D0DC"/>
-                                        </Style>
-                                    </ComboBox.Styles>
+                                <TextBlock Text="Select a vision model. VRAM shown per model."
+                                           Classes="Status" FontSize="9" TextWrapping="Wrap"/>
+
+                                <ComboBox SelectedItem="{Binding Settings.SelectedModelEntry}"
+                                          ItemsSource="{Binding Settings.AvailableModels}"
+                                          HorizontalAlignment="Stretch" FontSize="11"
+                                          Background="#161A22" Foreground="#E8C55A">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ModelEntry">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="11"
+                                                       FontFamily="Consolas,'Courier New',monospace"
+                                                       Foreground="#C8D0DC"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
                                 </ComboBox>
-                                <Button Content="INSTALL SELECTED MODEL" Background="#228B22" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding InstallLmStudioCommand}"/>
+
+                                <!-- Custom model input — visible only when "Custom" is selected -->
+                                <StackPanel Spacing="4" IsVisible="{Binding Settings.IsCustomModelSelected}">
+                                    <TextBlock Text="CUSTOM MODEL ID" Classes="Label" FontSize="10"/>
+                                    <TextBox Text="{Binding Settings.CustomModelName}"
+                                             Watermark="e.g. my-org/my-model-GGUF or ollama-tag:7b"
+                                             FontSize="11"/>
+                                    <TextBlock Text="This value is saved to your settings.json in AppData"
+                                               Classes="Status" FontSize="9" TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <Button Content="INSTALL MODEL"
+                                        Background="#228B22" Foreground="White"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding InstallLmStudioCommand}"/>
                             </StackPanel>
                         </Border>
 
+                        <!-- LLM HOSTNAME -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
-                                <TextBlock Text="LLM HOSTNAME (IP)" Classes="Label"/>
-                                <TextBox Text="{Binding Settings.LmStudioUrl}" FontSize="11" Padding="8,6" Background="#161A22" BorderBrush="#2A3040"/>
+                                <TextBlock Classes="Label">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="API ENDPOINT ({0})">
+                                            <Binding Path="Settings.ActiveBackend"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <TextBox Text="{Binding Settings.LmStudioUrl}"
+                                         IsVisible="{Binding Settings.IsOllamaSelected, Converter={x:Static conv:BoolConverters.Not}}"
+                                         FontSize="11" Padding="8,6" Background="#161A22" BorderBrush="#2A3040"/>
+                                <TextBox Text="{Binding Settings.OllamaUrl}"
+                                         IsVisible="{Binding Settings.IsOllamaSelected}"
+                                         FontSize="11" Padding="8,6" Background="#161A22" BorderBrush="#2A3040"/>
                             </StackPanel>
                         </Border>
 
+                        <!-- CONTEXT / TOKEN SETTINGS -->
+                        <Border Classes="Card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="CONTEXT / TOKEN SETTINGS" Classes="Label"/>
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="MAX TOKENS"
+                                               Classes="Label" FontSize="10" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                    <TextBox   Grid.Row="0" Grid.Column="1"
+                                               Text="{Binding Settings.MaxTokens}"
+                                               Width="72" FontSize="11" Padding="6,4"
+                                               Background="#161A22" BorderBrush="#2A3040"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0"
+                                               Text="0 = model default" Classes="Status" FontSize="9" Margin="0,0,0,8"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="TEMPERATURE"
+                                               Classes="Label" FontSize="10" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                    <TextBox   Grid.Row="2" Grid.Column="1"
+                                               Text="{Binding Settings.Temperature}"
+                                               Width="72" FontSize="11" Padding="6,4"
+                                               Background="#161A22" BorderBrush="#2A3040"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0"
+                                               Text="0.0 deterministic → 1.0 creative" Classes="Status" FontSize="9" Margin="0,2,0,0"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TOKEN COST / SPEED -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <CheckBox IsChecked="{Binding Settings.ShowTokenCost}" Content="Show Token Cost / Speed"/>
-                                <Border Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="1" CornerRadius="4" Padding="10,8" IsVisible="{Binding Settings.ShowTokenCost}">
+                                <Border Background="#0D0F14" BorderBrush="#1E2430" BorderThickness="1"
+                                        CornerRadius="4" Padding="10,8"
+                                        IsVisible="{Binding Settings.ShowTokenCost}">
                                     <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Progress.InputTokens}" Classes="Value" FontSize="12"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="INPUT TOKENS"  Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Progress.InputTokens}"     Classes="Value" FontSize="12"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="OUTPUT TOKENS" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Progress.OutputTokens}" Classes="Value" FontSize="12"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)" Classes="Label" FontSize="10" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Progress.OutputTokens}"    Classes="Value" FontSize="12"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SPEED (t/s)"   Classes="Label" FontSize="10" Margin="0,0,0,6"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Progress.TokensPerSecond}" Classes="Value" FontSize="12"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS" Classes="Label" FontSize="10"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Progress.ProgressText}" Classes="Value" FontSize="12"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PROGRESS"      Classes="Label" FontSize="10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Progress.ProgressText}"    Classes="Value" FontSize="12"/>
                                     </Grid>
                                 </Border>
                             </StackPanel>
                         </Border>
 
+                        <!-- GPU -->
                         <Border Classes="Card">
                             <StackPanel Spacing="10">
                                 <CheckBox IsChecked="{Binding Settings.UseGpu}" Content="Use GPU for Inference"/>
-                                <TextBlock Text="Requires compatible NVIDIA/AMD GPU" Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="Requires compatible NVIDIA/AMD GPU"
+                                           Classes="Status" FontSize="10" Margin="24,0,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
+
                     </StackPanel>
                 </ScrollViewer>
             </Border>
+
         </Grid>
 
-        <!-- ═══ FOOTER / ACTION BAR ═══ -->
-        <Border Grid.Row="2" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0" Padding="20,12">
+        <!-- ═══ FOOTER ═══ -->
+        <Border Grid.Row="3" Background="#0A0C10" BorderBrush="#1E2430" BorderThickness="0,1,0,0" Padding="20,12">
             <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Progress.FooterStatusText}" Classes="Status" VerticalAlignment="Center" FontSize="12"/>
-                </StackPanel>
+                <TextBlock Grid.Column="0" Text="{Binding Progress.FooterStatusText}"
+                           Classes="Status" VerticalAlignment="Center" FontSize="12"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                    <Button Content="■ CANCEL" Classes="Danger" IsVisible="{Binding IsSorting}" Command="{Binding CancelSortCommand}"/>
-                    <Button Content="▶ START SORT" Classes="Primary" MinWidth="140" IsVisible="{Binding IsNotSorting}" Command="{Binding StartSortCommand}"/>
+                    <Button Content="■ CANCEL" Classes="Danger"
+                            IsVisible="{Binding IsSorting}" Command="{Binding CancelSortCommand}"/>
+                    <Button Content="▶ START SORT" Classes="Primary" MinWidth="140"
+                            IsVisible="{Binding IsNotSorting}" Command="{Binding StartSortCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
+
     </Grid>
 </Window>

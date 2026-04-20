@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,33 +8,34 @@
     <RootNamespace>Sorter</RootNamespace>
   </PropertyGroup>
 
-  <!-- Windows-only properties -->
-  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('windows'))">
     <OutputType>WinExe</OutputType>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia"                                Version="11.2.3" />
-    <PackageReference Include="Avalonia.Desktop"                        Version="11.2.3" />
-    <PackageReference Include="Avalonia.Themes.Fluent"                  Version="11.2.3" />
-    <PackageReference Include="Avalonia.Fonts.Inter"                    Version="11.2.3" />
-    <PackageReference Include="MetadataExtractor"                       Version="2.8.1"  />
-    <PackageReference Include="Newtonsoft.Json"                         Version="13.0.3" />
-    <PackageReference Include="CommunityToolkit.Mvvm"                   Version="8.2.2"  />
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <!-- ADDED TO FIX CS1061: -->
-    <PackageReference Include="Microsoft.Extensions.Http"               Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-    <Resource Include="Icon.ico" />
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('windows'))">
+    <Resource Include="icon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include=".claude\" />
+  </ItemGroup>
 </Project>

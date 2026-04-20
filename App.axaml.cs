@@ -18,17 +18,19 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
 
-        // Infrastructure
         services.AddSingleton<IFileSystemService, FileSystemService>();
         services.AddSingleton<IFileClassificationService, FileClassificationService>();
         services.AddSingleton<IImageService, ImageService>();
 
-        // Business logic
+        services.AddHttpClient<LmStudioService>();
+        services.AddHttpClient<OllamaService>();
+        services.AddSingleton<AIImageClassifierService>();
+        services.AddSingleton<IAIImageClassifierService>(sp =>
+            sp.GetRequiredService<AIImageClassifierService>());
+
         services.AddSingleton<FileSorterService>();
         services.AddSingleton<LmStudioCliService>();
-        services.AddHttpClient<LmStudioService>();
 
-        // View models
         services.AddSingleton<MainViewModel>();
 
         Services = services.BuildServiceProvider();
