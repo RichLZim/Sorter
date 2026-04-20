@@ -159,10 +159,17 @@
     </Style>
 
     <Style Selector="ListBoxItem">
-        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="Padding" Value="10,4"/>
         <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="11"/>
         <Setter Property="Foreground" Value="#8090A0"/>
+    </Style>
+
+    <!-- Log entries wrap within their container width -->
+    <Style Selector="ListBoxItem > TextBlock">
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="FontFamily" Value="Consolas, 'Courier New', monospace"/>
+        <Setter Property="FontSize" Value="11"/>
     </Style>
 
     <Style Selector="ListBoxItem:selected /template/ ContentPresenter">

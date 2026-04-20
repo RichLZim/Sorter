@@ -1,4 +1,3 @@
-
 using System;
 using System.IO;
 using System.Threading;
@@ -95,7 +94,7 @@ public class FileSorterService
         if (isImage)
         {
             var ai = await _aiClassifier.ClassifyAsync(
-                filePath, prompt, options.MaxTokens, options.Temperature, token);
+                filePath, prompt, options.MaxTokens, options.Temperature, options.TopP, token);
 
             aiDescription = ai?.Description ?? "";
             folder = options.UseSubfolders && !string.IsNullOrWhiteSpace(aiDescription)
@@ -196,9 +195,8 @@ public class FileSorterService
 
     // ── EXIF stripping ───────────────────────────────────────────────────────
 
-    private void TryEraseExif(string filePath)
+    private static void TryEraseExif(string filePath)
     {
-       var tmp = filePath + ".sorter_tmp";
         try
         {
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
@@ -208,23 +206,13 @@ public class FileSorterService
             var cleaned  = StripJpegApp1(original);
             if (cleaned is null || cleaned.Length == 0) return;
 
-            // Write to temp file first, then atomically move
+            // Write to temp file first, then atomically replace — prevents
+            // corruption if the process is interrupted mid-write.
+            var tmp = filePath + ".sorter_tmp";
             File.WriteAllBytes(tmp, cleaned);
-            
-            // File.Move with overwrite=true is much safer on Mac/Linux than File.Replace
-            File.Move(tmp, filePath, overwrite: true);
+            File.Replace(tmp, filePath, null);
         }
-        catch (Exception ex)
-        {
-            // Now the user actually knows if EXIF stripping failed for a file!
-            OnError?.Invoke($"[EXIF] Failed to strip EXIF from {Path.GetFileName(filePath)}: {ex.Message}");
-            
-            // Cleanup the temporary file so we don't litter the user's hard drive
-            if (File.Exists(tmp))
-            {
-                try { File.Delete(tmp); } catch { /* Ignore cleanup failures */ }
-            }
-        }
+        catch { /* non-fatal */ }
     }
 
     private static byte[]? StripJpegApp1(byte[] data)
@@ -305,4 +293,5 @@ public record SortOptions(
     bool   IgnoreNonDatedFiles,
     bool   EraseExif,
     int    MaxTokens,
-    double Temperature);
+    double Temperature,
+    double TopP);

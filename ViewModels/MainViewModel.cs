@@ -80,8 +80,7 @@ public partial class MainViewModel : ObservableObject
         _sorter.OnLog   += msg => Dispatcher.UIThread.Post(() => AddLog(msg));
         _sorter.OnError += msg => Dispatcher.UIThread.Post(() => AddLog($"[ERROR] {msg}"));
 
-        // Wire CLI error events so denied/access errors surface in the log
-        _cli.OnLog   += msg => Dispatcher.UIThread.Post(() => AddLog(msg));
+        // Wire CLI error event so denied/access errors surface in the log
         _cli.OnError += msg => Dispatcher.UIThread.Post(() => AddLog($"[SHELL ERROR] {msg}"));
 
         // Load image and push it to the preview panel while sorting
@@ -135,19 +134,12 @@ public partial class MainViewModel : ObservableObject
         if (!Settings.LmStudioDetected)
         {
             AddLog("[INFO] LM Studio not found — starting install…");
-            try
-            {
-                await BackendDetectionService.InstallLmStudioAsync();
-                await DetectBackendsAsync();
-            }
-            catch (Exception ex)
-            {
-                AddLog($"[ERROR] Installation failed to start: {ex.Message}");
-            }
+            await BackendDetectionService.InstallLmStudioAsync();
+            await DetectBackendsAsync();
         }
     }
 
-   [RelayCommand]
+    [RelayCommand]
     private async Task SelectOllamaAsync()
     {
         Settings.ActiveBackend = AiBackend.Ollama;
@@ -158,15 +150,8 @@ public partial class MainViewModel : ObservableObject
         if (!Settings.OllamaDetected)
         {
             AddLog("[INFO] Ollama not found — starting install…");
-            try
-            {
-                await BackendDetectionService.InstallOllamaAsync();
-                await DetectBackendsAsync();
-            }
-            catch (Exception ex)
-            {
-                AddLog($"[ERROR] Installation failed to start: {ex.Message}");
-            }
+            await BackendDetectionService.InstallOllamaAsync();
+            await DetectBackendsAsync();
         }
     }
 
@@ -208,7 +193,8 @@ public partial class MainViewModel : ObservableObject
             IgnoreNonDatedFiles: Settings.IgnoreNonDatedFiles,
             EraseExif:           Settings.EraseExif,
             MaxTokens:           Settings.MaxTokens,
-            Temperature:         Settings.Temperature);
+            Temperature:         Settings.Temperature,
+            TopP:                Settings.TopP);
 
         try
         {
@@ -264,29 +250,21 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Open the AppData/Sorter folder in the system file explorer.</summary>
-   [RelayCommand]
-    private void OpenSettingsFolder() // FIX: Removed 'static'
+    [RelayCommand]
+    private static void OpenSettingsFolder()
     {
         var path = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Sorter");
 
-        try
-        {
-            System.IO.Directory.CreateDirectory(path);
+        System.IO.Directory.CreateDirectory(path);
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                Process.Start(new ProcessStartInfo("explorer", $"\"{path}\"") { UseShellExecute = true });
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                Process.Start("open", $"\"{path}\"");
-            else
-                Process.Start(new ProcessStartInfo("xdg-open", $"\"{path}\"") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            AddLog($"[ERROR] Cannot open folder automatically: {ex.Message}");
-        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            Process.Start(new ProcessStartInfo("explorer", path) { UseShellExecute = true });
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            Process.Start("open", path);
+        else
+            Process.Start("xdg-open", path);
     }
-
 
     // ── LM Studio CLI ─────────────────────────────────────────────────────────
 
@@ -340,15 +318,15 @@ public partial class MainViewModel : ObservableObject
 
         AddLog($"[LIMIT SERVER] Done. Active model: {model}");
     }
-[RelayCommand]
+
+    [RelayCommand]
     private async Task InstallLmStudioAsync()
     {
         if (Settings.ActiveBackend == AiBackend.Ollama)
         {
             var tag = Settings.SelectedModelEntry?.ModelId ?? "gemma4:e4b";
             AddLog($"[Ollama] Pulling model '{tag}'…");
-            // FIX: Use the injected _ollamaService instance
-            await _ollamaService.PullModelAsync(tag); 
+            await OllamaService.PullModelAsync(tag);
         }
         else
         {
@@ -362,8 +340,8 @@ public partial class MainViewModel : ObservableObject
 
     // ── GitHub ────────────────────────────────────────────────────────────────
 
-  [RelayCommand]
-    private void OpenGitHub() // FIX: Removed 'static'
+    [RelayCommand]
+    private static void OpenGitHub()
     {
         const string url = "https://github.com/your-repo/sorter";
         try
@@ -373,12 +351,9 @@ public partial class MainViewModel : ObservableObject
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 Process.Start("open", url);
             else
-                Process.Start(new ProcessStartInfo("xdg-open", url) { UseShellExecute = true });
+                Process.Start("xdg-open", url);
         }
-        catch (Exception ex)
-        {
-            AddLog($"[ERROR] Cannot open browser: {ex.Message}");
-        }
+        catch { }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

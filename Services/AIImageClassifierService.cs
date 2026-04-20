@@ -16,6 +16,7 @@ public interface IAIImageClassifierService
         string prompt,
         int    maxTokens,
         double temperature,
+        double topP,
         CancellationToken token);
 }
 
@@ -40,6 +41,7 @@ public class AIImageClassifierService : IAIImageClassifierService
         string prompt,
         int    maxTokens,
         double temperature,
+        double topP,
         CancellationToken token)
     {
         if (!File.Exists(imagePath)) return null;
@@ -61,7 +63,8 @@ public class AIImageClassifierService : IAIImageClassifierService
                 fullPrompt, token,
                 imageBase64: b64,
                 maxTokens:   maxTokens,
-                temperature: temperature);
+                temperature: temperature,
+                topP:        topP);
         }
         else
         {
@@ -70,7 +73,8 @@ public class AIImageClassifierService : IAIImageClassifierService
                 imageBase64:   b64,
                 imageMimeType: mimeType,
                 maxTokens:     maxTokens,
-                temperature:   temperature);
+                temperature:   temperature,
+                topP:          topP);
         }
 
         if (string.IsNullOrWhiteSpace(rawResponse)) return null;

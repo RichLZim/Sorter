@@ -34,7 +34,7 @@ public class OllamaService
     {
         try
         {
-            using var cts  = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var resp = await _client.GetAsync($"{_baseUrl}/api/tags", cts.Token);
             return resp.IsSuccessStatusCode ? (true, "OK") : (false, $"HTTP {(int)resp.StatusCode}");
         }
@@ -43,14 +43,12 @@ public class OllamaService
         catch (Exception ex)               { return (false, ex.Message); }
     }
 
-    /// <summary>
-    /// Returns the list of currently loaded model names by querying /api/ps.
-    /// </summary>
+    /// <summary>Returns currently loaded Ollama model names via /api/ps.</summary>
     public async Task<List<string>> GetRunningModelsAsync()
     {
         try
         {
-            using var cts  = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var resp = await _client.GetAsync($"{_baseUrl}/api/ps", cts.Token);
             if (!resp.IsSuccessStatusCode) return new List<string>();
 
@@ -66,7 +64,7 @@ public class OllamaService
         catch { return new List<string>(); }
     }
 
-    /// <summary>Stops the currently running Ollama model (if any) and starts the specified one.</summary>
+    /// <summary>Unloads all running Ollama models then starts the specified one.</summary>
     public async Task EnforceSingleModelAsync(string modelTag)
     {
         var running = await GetRunningModelsAsync();
@@ -74,48 +72,47 @@ public class OllamaService
         {
             try
             {
-                // CRITICAL FIX: POST to /api/generate with keep_alive=0 to safely unload from memory.
-                var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/generate")
+                var req = new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/api/delete")
                 {
                     Content = new StringContent(
-                        JsonConvert.SerializeObject(new { model = m, keep_alive = 0 }),
+                        JsonConvert.SerializeObject(new { name = m }),
                         Encoding.UTF8, "application/json")
                 };
                 await _client.SendAsync(req);
             }
-            catch { /* best-effort */ }
+            catch { /* best-effort unload */ }
         }
 
+        // Start the target model via CLI — FIX: pass exe/args as two separate params, not a tuple
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             await RunAsync("cmd", $"/c ollama run {modelTag} --nowordwrap");
         else
             await RunAsync("/bin/sh", $"-l -c \"ollama run {modelTag} --nowordwrap &\"");
     }
 
-    // FIX: Removed "static" to match DI injection requirements
-    public async Task PullModelAsync(string modelTag)
+    public static Task PullModelAsync(string modelTag)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            await RunAsync("cmd", $"/c ollama pull {modelTag}");
+            return RunAsync("cmd", $"/c ollama pull {modelTag}");
         else
-            await RunAsync("/bin/sh", $"-l -c \"ollama pull {modelTag}\"");
+            return RunAsync("/bin/sh", $"-l -c \"ollama pull {modelTag}\"");
     }
 
-    // FIX: Removed "static"
-    public async Task StartServeAsync()
+    public static Task StartServeAsync()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            await RunAsync("cmd", "/c start /B ollama serve");
+            return RunAsync("cmd", "/c start /B ollama serve");
         else
-            await RunAsync("/bin/sh", "-l -c \"ollama serve &\"");
+            return RunAsync("/bin/sh", "-l -c \"ollama serve &\"");
     }
 
     public async Task<string?> QueryAsync(
         string  prompt,
         CancellationToken token,
-        string? imageBase64   = null,
-        int     maxTokens     = 0,
-        double  temperature   = 0.2)
+        string? imageBase64 = null,
+        int     maxTokens   = 0,
+        double  temperature = 0.2,
+        double  topP        = 0.9)
     {
         try
         {
@@ -124,20 +121,18 @@ public class OllamaService
                 : (object)new { role = "user", content = prompt };
 
             var options = maxTokens > 0
-                ? (object)new Dictionary<string, object>
-                    { ["temperature"] = temperature, ["num_predict"] = maxTokens }
-                : new Dictionary<string, object>
-                    { ["temperature"] = temperature };
+                ? (object)new Dictionary<string, object> { ["temperature"] = temperature, ["num_predict"] = maxTokens, ["top_p"] = topP }
+                : new Dictionary<string, object>         { ["temperature"] = temperature, ["top_p"] = topP };
 
             var payload = new Dictionary<string, object>
             {
-                ["model"]   = _model,
+                ["model"]    = _model,
                 ["messages"] = new[] { message },
                 ["options"]  = options,
-                ["stream"]  = false,
+                ["stream"]   = false,
             };
 
-            var json = JsonConvert.SerializeObject(payload);
+            var json    = JsonConvert.SerializeObject(payload);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _client.PostAsync($"{_baseUrl}/api/chat", content, token);
 
@@ -156,10 +151,8 @@ public class OllamaService
         catch (Exception ex)               { OnError?.Invoke($"Ollama failure: {ex.Message}"); return null; }
     }
 
-    // FIX: Removed "static" and hooked up OnLog/OnError for real-time UI updates
-    private async Task RunAsync(string exe, string args)
+    private static async Task RunAsync(string exe, string args)
     {
-        OnLog?.Invoke($"[Ollama CLI] Executing: {exe} {args}");
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo
@@ -173,7 +166,8 @@ public class OllamaService
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"[Ollama CLI Error] {ex.Message}");
+            // Non-fatal — surface via OnError if needed
+            Console.Error.WriteLine($"[Ollama CLI] {ex.Message}");
         }
     }
 }

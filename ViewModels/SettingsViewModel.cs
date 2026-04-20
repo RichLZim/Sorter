@@ -20,6 +20,7 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsOllamaSelected))]
     [NotifyPropertyChangedFor(nameof(IsCustomSelected))]
     [NotifyPropertyChangedFor(nameof(EffectiveApiUrl))]
+    [NotifyPropertyChangedFor(nameof(SelectedModelUrl))]
     private AiBackend _activeBackend = AiBackend.Custom;
 
     public bool IsLmStudioSelected => ActiveBackend == AiBackend.LmStudio;
@@ -45,6 +46,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCustomModelSelected))]
     [NotifyPropertyChangedFor(nameof(ModelName))]
+    [NotifyPropertyChangedFor(nameof(SelectedModelUrl))]
     private ModelEntry? _selectedModelEntry;
 
     [ObservableProperty] private string _customModelName = "";
@@ -59,7 +61,11 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnSelectedModelEntryChanged(ModelEntry? value) => OnPropertyChanged(nameof(ModelName));
     partial void OnCustomModelNameChanged(string value)
     {
-        if (IsCustomModelSelected) OnPropertyChanged(nameof(ModelName));
+        if (IsCustomModelSelected)
+        {
+            OnPropertyChanged(nameof(ModelName));
+            OnPropertyChanged(nameof(SelectedModelUrl));
+        }
     }
 
     // ── Available models ──────────────────────────────────────────────────────
@@ -84,10 +90,44 @@ public partial class SettingsViewModel : ObservableObject
         _              => m.ModelId
     };
 
+
+    // ── Model URL for hover tooltip ───────────────────────────────────────────
+    /// <summary>Returns the download/info URL for the currently selected model on the active backend.</summary>
+    public string SelectedModelUrl
+    {
+        get
+        {
+            if (SelectedModelEntry is null) return "";
+            if (IsCustomModelSelected)      return CustomModelName; // show the custom ID they typed
+            return ActiveBackend == AiBackend.Ollama
+                ? OllamaModelUrl(SelectedModelEntry)
+                : LmStudioModelUrl(SelectedModelEntry);
+        }
+    }
+
+    public static string OllamaModelUrl(ModelEntry m) => m.ModelId switch
+    {
+        "gemma4:26b"   => "https://ollama.com/library/gemma4",
+        "gemma4:e4b"   => "https://ollama.com/library/gemma4",
+        "qwen2.5vl:7b" => "https://ollama.com/library/qwen2.5vl",
+        "llava:13b"    => "https://ollama.com/library/llava",
+        _              => $"https://ollama.com/library/{m.ModelId.Split(':')[0]}",
+    };
+
+    public static string LmStudioModelUrl(ModelEntry m) => m.ModelId switch
+    {
+        "gemma4:26b"   => "https://huggingface.co/google/gemma-4-26b-a4b",
+        "gemma4:e4b"   => "https://huggingface.co/google/gemma-4-e4b",
+        "qwen2.5vl:7b" => "https://huggingface.co/lmstudio-community/Qwen2.5-VL-7B-Instruct-GGUF",
+        "llava:13b"    => "https://huggingface.co/cjpais/llava-v1.6-vicuna-13b-gguf",
+        _              => "",
+    };
+
     // ── GPU / inference ───────────────────────────────────────────────────────
     [ObservableProperty] private bool   _useGpu;
     [ObservableProperty] private int    _maxTokens   = 256;
     [ObservableProperty] private double _temperature = 0.2;
+    [ObservableProperty] private double _topP        = 0.9;
 
     // ── Rename / filter options ───────────────────────────────────────────────
     [ObservableProperty] private bool   _usePrefix;
@@ -142,7 +182,8 @@ public partial class SettingsViewModel : ObservableObject
             if (e.PropertyName is nameof(ActivePromptText) or nameof(IsDefaultPromptActive)
                 or nameof(ModelName) or nameof(EffectiveApiUrl) or nameof(IsCustomModelSelected)
                 or nameof(IsLmStudioSelected) or nameof(IsOllamaSelected) or nameof(IsCustomSelected)
-                or nameof(LmStudioDetected) or nameof(OllamaDetected))
+                or nameof(LmStudioDetected) or nameof(OllamaDetected)
+)
                 return;
             SaveSettings();
         };
@@ -166,6 +207,7 @@ public partial class SettingsViewModel : ObservableObject
             UseGpu              = s.UseGpu;
             MaxTokens           = s.MaxTokens;
             Temperature         = s.Temperature;
+            TopP                = s.TopP;
             UseCustomPrompt     = s.UseCustomPrompt;
             CustomPrompt        = s.CustomPrompt;
             UseVrcPreset        = s.UseVrcPreset;
@@ -182,6 +224,7 @@ public partial class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(IsDefaultPromptActive));
             OnPropertyChanged(nameof(ModelName));
             OnPropertyChanged(nameof(EffectiveApiUrl));
+            OnPropertyChanged(nameof(SelectedModelUrl));
         }
     }
 
@@ -202,6 +245,7 @@ public partial class SettingsViewModel : ObservableObject
         UseGpu              = UseGpu,
         MaxTokens           = MaxTokens,
         Temperature         = Temperature,
+        TopP                = TopP,
         UseCustomPrompt     = UseCustomPrompt,
         CustomPrompt        = CustomPrompt,
         UseVrcPreset        = UseVrcPreset,

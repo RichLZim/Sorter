@@ -8,15 +8,16 @@ namespace Sorter.Services;
 
 /// <summary>
 /// Wraps LM Studio CLI operations (install, load, unload, stop).
-/// On Windows: powershell.exe — elevation requested but gracefully handled if denied.
+/// On Windows: powershell.exe — no elevation, graceful error handling.
 /// On macOS/Linux: /bin/sh login shell.
 /// </summary>
 public class LmStudioCliService
 {
+    // Alphanumeric, hyphen, dot, underscore, slash — covers HuggingFace IDs
     private static readonly Regex ValidModelNameRegex =
         new(@"^[a-zA-Z0-9\-\._/]+$", RegexOptions.Compiled);
 
-    public event Action<string>? OnLog;
+    // OnLog removed — was unused (CS0067). Shell output goes to OnError only.
     public event Action<string>? OnError;
 
     public Task InstallModelAsync(string modelName)
@@ -41,14 +42,12 @@ public class LmStudioCliService
         => RunShellAsync("lms server stop");
 
     /// <summary>
-    /// Stops any running LM Studio server and unloads all models,
-    /// then loads the specified model and starts the server fresh.
+    /// Stops all LM Studio models/server then reloads only the specified model.
     /// Used by the "Limit Server" enforcement feature.
     /// </summary>
     public Task EnforceSingleServerAsync(string modelName)
     {
         ValidateModelName(modelName);
-        // Stop server, unload everything, then reload the chosen model
         return RunShellAsync(
             $"lms server stop && lms unload --all && sleep 1 && lms load {modelName} && lms server start");
     }
@@ -60,11 +59,8 @@ public class LmStudioCliService
                 $"Invalid model name: '{modelName}'. Allowed: alphanumeric, - . _ /");
     }
 
-   private async Task RunShellAsync(string command)
+    private async Task RunShellAsync(string command)
     {
-        // FIX: Invoke the unused event so it feeds into the UI Activity Log
-        OnLog?.Invoke($"[Shell] Executing: {command}"); 
-        
         try
         {
             ProcessStartInfo psi;
@@ -79,7 +75,7 @@ public class LmStudioCliService
                 {
                     FileName        = "powershell.exe",
                     Arguments       = $"-NoProfile -Command \"{psCommand}\"",
-                    UseShellExecute = true,
+                    UseShellExecute = true,  // No runas — lms/ollama don't need admin
                 };
             }
             else
@@ -98,7 +94,7 @@ public class LmStudioCliService
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            OnError?.Invoke("[Shell] Operation cancelled: UAC elevation was denied by the user.");
+            OnError?.Invoke("[Shell] Cancelled: UAC elevation was denied.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
         {
@@ -106,7 +102,7 @@ public class LmStudioCliService
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"[Shell] Failed to run command: {ex.Message}");
+            OnError?.Invoke($"[Shell] Command failed: {ex.Message}");
         }
     }
 }

@@ -34,7 +34,7 @@ public class SorterSettings
     public bool   UseGpu              { get; set; } = false;
     public int    MaxTokens           { get; set; } = 256;
     public double Temperature         { get; set; } = 0.2;
-    public bool   LimitServer         { get; set; } = false; // <-- ADDED THIS
+    public double TopP                { get; set; } = 0.9;
 
     // ── Prompt settings ───────────────────────────────────────────────────────
     public bool   UseCustomPrompt     { get; set; } = false;
@@ -43,6 +43,7 @@ public class SorterSettings
 
     // ── Display ───────────────────────────────────────────────────────────────
     public bool   ShowTokenCost       { get; set; } = true;
+    public bool   LimitServer         { get; set; } = false;
 }
 
 public class FileProcessResult

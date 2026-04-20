@@ -56,7 +56,8 @@ public class LmStudioService
         string? imageBase64     = null,
         string  imageMimeType   = "image/jpeg",
         int     maxTokens       = 0,
-        double  temperature     = 0.2)
+        double  temperature     = 0.2,
+        double  topP            = 0.9)
     {
         try
         {
@@ -89,6 +90,7 @@ public class LmStudioService
                 ["model"]       = _model,
                 ["messages"]    = new[] { new { role = "user", content = messageContent } },
                 ["temperature"] = temperature,
+                ["top_p"]      = topP,
                 ["stream"]      = false,
             };
             if (maxTokens > 0)

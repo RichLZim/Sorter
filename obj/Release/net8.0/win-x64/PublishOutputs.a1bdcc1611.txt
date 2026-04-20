@@ -1,0 +1,5 @@
+D:\Desktop\Sorter\publish\Sorter.pdb
+D:\Desktop\Sorter\publish\av_libglesv2.dll
+D:\Desktop\Sorter\publish\libHarfBuzzSharp.dll
+D:\Desktop\Sorter\publish\libSkiaSharp.dll
+D:\Desktop\Sorter\publish\Sorter.exe
