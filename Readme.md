@@ -1,5 +1,5 @@
 # 🖼️ Sorterz — AI Image Organizer
-
+![Sorterz](https://raw.githubusercontent.com/RichLZim/Sorter/refs/heads/main/sorter.png)
 **Harness the power of Local Vision LLMs to intelligently categorize, rename, and organize your image library—100% offline and completely private.**
 
 ![Sorterz](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)
